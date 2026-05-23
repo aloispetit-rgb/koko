@@ -110,7 +110,7 @@ function renderCalendar() {
       if (smiley) {
         var imgEl = document.createElement('img');
         imgEl.className = 'cal-smiley';
-        imgEl.src = '/assets/img/calendar/' + smiley.image + '.png';
+        imgEl.src = SITE_BASE + '/assets/img/calendar/' + smiley.image + '.png';
         imgEl.alt = smiley.label;
         cell.appendChild(imgEl);
       }

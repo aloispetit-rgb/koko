@@ -133,7 +133,7 @@ function buildPassiveTask(task) {
 
   var img = document.createElement('img');
   img.className = 'task-passive-img';
-  img.src = '/assets/img/periods/' + task.image + '.png';
+  img.src = SITE_BASE + '/assets/img/periods/' + task.image + '.png';
   img.alt = task.label;
 
   block.appendChild(labelEl);
@@ -343,7 +343,3 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
-}

@@ -451,7 +451,7 @@ function renderParentCalendar() {
       if (smiley) {
         var img = document.createElement('img');
         img.className = 'cal-smiley';
-        img.src = '/assets/img/calendar/' + smiley.image + '.png';
+        img.src = SITE_BASE + '/assets/img/calendar/' + smiley.image + '.png';
         img.alt = smiley.label;
         cell.appendChild(img);
       }
