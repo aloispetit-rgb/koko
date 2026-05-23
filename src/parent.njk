@@ -1,0 +1,258 @@
+---
+layout: layout.njk
+title: Koko — Parents
+extraCss: parent.css
+extraJs:
+  - storage.js
+  - timeUtils.js
+  - recurrence.js
+  - periods.js
+  - smiley.js
+  - parent.js
+---
+
+<div class="pin-gate" id="pin-gate">
+  <div class="pin-header">
+    <div class="pin-icon">🔐</div>
+    <h1 class="pin-title" id="pin-title">Code parent</h1>
+  </div>
+  <div class="pin-dots" id="pin-dots">
+    <span class="pin-dot"></span>
+    <span class="pin-dot"></span>
+    <span class="pin-dot"></span>
+    <span class="pin-dot"></span>
+  </div>
+  <p class="pin-error" id="pin-error" aria-live="polite"></p>
+  <div class="pin-keypad">
+    <button class="pin-key" data-digit="1">1</button>
+    <button class="pin-key" data-digit="2">2</button>
+    <button class="pin-key" data-digit="3">3</button>
+    <button class="pin-key" data-digit="4">4</button>
+    <button class="pin-key" data-digit="5">5</button>
+    <button class="pin-key" data-digit="6">6</button>
+    <button class="pin-key" data-digit="7">7</button>
+    <button class="pin-key" data-digit="8">8</button>
+    <button class="pin-key" data-digit="9">9</button>
+    <div class="pin-key-spacer"></div>
+    <button class="pin-key" data-digit="0">0</button>
+    <button class="pin-key pin-key-back" id="pin-back">⌫</button>
+  </div>
+</div>
+
+<div class="parent-content" id="parent-content" style="display:none">
+  <header class="parent-header">
+    <span class="parent-title">Espace parent</span>
+    <button class="btn-lock" id="btn-lock">🔒 Verrouiller</button>
+  </header>
+
+  <nav class="tab-bar">
+    <button class="tab-btn tab-active" data-tab="periods">📋 Périodes</button>
+    <button class="tab-btn" data-tab="calendar">📅 Calendrier</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Réglages</button>
+  </nav>
+
+  <!-- Onglet Périodes -->
+  <div class="tab-pane tab-pane-active" id="tab-periods">
+    <div class="pane-toolbar">
+      <button class="btn-primary" id="btn-add-period">+ Nouvelle période</button>
+    </div>
+    <div class="periods-list" id="periods-list"></div>
+  </div>
+
+  <!-- Onglet Calendrier -->
+  <div class="tab-pane" id="tab-calendar">
+    <div class="pcal-topbar">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="pcal-prev-btn">‹</button>
+        <span class="cal-month-title" id="pcal-month-title"></span>
+        <button class="cal-nav-btn" id="pcal-next-btn">›</button>
+      </div>
+    </div>
+    <div class="calendar-grid" id="pcalendar-grid"></div>
+  </div>
+
+  <!-- Onglet Réglages -->
+  <div class="tab-pane" id="tab-settings">
+    <div class="settings-section">
+      <h2 class="settings-title">Changer le code</h2>
+      <div class="settings-form" id="settings-pin-form">
+        <div class="form-group">
+          <label class="form-label">Code actuel</label>
+          <div class="pin-mini-dots" id="old-pin-dots">
+            <span class="pin-dot"></span><span class="pin-dot"></span>
+            <span class="pin-dot"></span><span class="pin-dot"></span>
+          </div>
+          <div class="pin-mini-keypad" id="old-pin-keypad" data-target="old"></div>
+        </div>
+        <div class="form-group" id="new-pin-group" style="display:none">
+          <label class="form-label" id="new-pin-label">Nouveau code</label>
+          <div class="pin-mini-dots" id="new-pin-dots">
+            <span class="pin-dot"></span><span class="pin-dot"></span>
+            <span class="pin-dot"></span><span class="pin-dot"></span>
+          </div>
+          <div class="pin-mini-keypad" id="new-pin-keypad" data-target="new"></div>
+        </div>
+        <p class="settings-error" id="settings-pin-error" aria-live="polite"></p>
+        <p class="settings-success" id="settings-pin-success" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay : formulaire période -->
+<div class="p-overlay" id="period-overlay" style="display:none">
+  <div class="p-overlay-topbar">
+    <button class="p-back-btn" id="period-overlay-back">← Retour</button>
+    <span class="p-overlay-title" id="period-overlay-title">Nouvelle période</span>
+    <button class="btn-save" id="period-save-btn">Enregistrer</button>
+  </div>
+  <div class="p-overlay-body">
+    <input type="hidden" id="pf-id">
+
+    <div class="form-row">
+      <div class="form-group form-group-sm">
+        <label class="form-label">Emoji</label>
+        <input class="form-input form-input-emoji" type="text" id="pf-emoji" maxlength="2" placeholder="🌅">
+      </div>
+      <div class="form-group form-group-grow">
+        <label class="form-label">Nom</label>
+        <input class="form-input" type="text" id="pf-name" placeholder="Matin">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group form-group-grow">
+        <label class="form-label">Début</label>
+        <div class="time-row">
+          <input class="form-input form-input-time" type="number" id="pf-start-hour" min="0" max="23" placeholder="6">
+          <span class="time-sep">h</span>
+          <input class="form-input form-input-time" type="number" id="pf-start-min" min="0" max="59" placeholder="00">
+        </div>
+      </div>
+      <div class="form-group form-group-grow">
+        <label class="form-label">Fin</label>
+        <div class="time-row">
+          <input class="form-input form-input-time" type="number" id="pf-end-hour" min="0" max="23" placeholder="8">
+          <span class="time-sep">h</span>
+          <input class="form-input form-input-time" type="number" id="pf-end-min" min="0" max="59" placeholder="20">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Récurrence</label>
+      <select class="form-select" id="pf-recurrence-type">
+        <option value="always">Tous les jours</option>
+        <option value="weekdays">Certains jours de la semaine</option>
+        <option value="period">Période bornée (dates + jours)</option>
+        <option value="once">Une seule date</option>
+        <option value="dates">Dates précises (liste)</option>
+        <option value="until_done">Jusqu'à complétion</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="pf-days-group" style="display:none">
+      <label class="form-label">Jours</label>
+      <div class="days-row" id="pf-days-row">
+        <button type="button" class="day-btn" data-day="lundi">L</button>
+        <button type="button" class="day-btn" data-day="mardi">M</button>
+        <button type="button" class="day-btn" data-day="mercredi">M</button>
+        <button type="button" class="day-btn" data-day="jeudi">J</button>
+        <button type="button" class="day-btn" data-day="vendredi">V</button>
+        <button type="button" class="day-btn" data-day="samedi">S</button>
+        <button type="button" class="day-btn" data-day="dimanche">D</button>
+      </div>
+    </div>
+
+    <div class="form-row" id="pf-period-range-group" style="display:none">
+      <div class="form-group form-group-grow">
+        <label class="form-label">Du</label>
+        <input class="form-input" type="date" id="pf-from">
+      </div>
+      <div class="form-group form-group-grow">
+        <label class="form-label">Au</label>
+        <input class="form-input" type="date" id="pf-to">
+      </div>
+    </div>
+
+    <div class="form-group" id="pf-once-group" style="display:none">
+      <label class="form-label">Date</label>
+      <input class="form-input" type="date" id="pf-once-date">
+    </div>
+
+    <div class="form-group" id="pf-dates-group" style="display:none">
+      <label class="form-label">Dates</label>
+      <div class="dates-list" id="pf-dates-list"></div>
+      <div class="date-add-row">
+        <input class="form-input" type="date" id="pf-add-date-input">
+        <button type="button" class="btn-secondary" id="pf-add-date-btn">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="form-group" id="pf-since-group" style="display:none">
+      <label class="form-label">Depuis le</label>
+      <input class="form-input" type="date" id="pf-since">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Exceptions</label>
+      <div class="dates-list" id="pf-exceptions-list"></div>
+      <div class="date-add-row">
+        <input class="form-input" type="date" id="pf-add-exception-input">
+        <button type="button" class="btn-secondary" id="pf-add-exception-btn">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <button type="button" class="btn-tasks" id="btn-manage-tasks">📝 Gérer les tâches</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay : gestion des tâches -->
+<div class="p-overlay" id="tasks-overlay" style="display:none">
+  <div class="p-overlay-topbar">
+    <button class="p-back-btn" id="tasks-overlay-back">← Retour</button>
+    <span class="p-overlay-title" id="tasks-overlay-title">Tâches</span>
+  </div>
+  <div class="p-overlay-body">
+    <div class="tasks-edit-list" id="tasks-edit-list"></div>
+
+    <div class="task-add-form">
+      <h3 class="task-add-title">Nouvelle tâche</h3>
+      <div class="form-group">
+        <label class="form-label">Label</label>
+        <input class="form-input" type="text" id="new-task-label" placeholder="Se brosser les dents">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <div class="task-type-toggle">
+          <button type="button" class="task-type-btn task-type-active" id="task-type-emoji-btn">Emoji</button>
+          <button type="button" class="task-type-btn" id="task-type-image-btn">Image</button>
+        </div>
+      </div>
+      <div class="form-group" id="new-task-emoji-group">
+        <label class="form-label">Emoji</label>
+        <input class="form-input form-input-emoji" type="text" id="new-task-emoji" maxlength="2" placeholder="🪥">
+      </div>
+      <div class="form-group" id="new-task-image-group" style="display:none">
+        <label class="form-label">Nom de l'image</label>
+        <input class="form-input" type="text" id="new-task-image" placeholder="ecole">
+        <p class="form-hint">Fichier dans /assets/img/periods/ (sans .png)</p>
+      </div>
+      <button type="button" class="btn-primary" id="btn-add-task">+ Ajouter la tâche</button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay : détail d'un jour (calendrier parent) -->
+<div class="p-overlay" id="day-overlay" style="display:none">
+  <div class="p-overlay-topbar">
+    <button class="p-back-btn" id="day-overlay-back">← Retour</button>
+    <span class="p-overlay-title" id="day-overlay-title"></span>
+  </div>
+  <div class="p-overlay-body">
+    <div class="day-tasks-list" id="day-tasks-list"></div>
+    <p class="day-empty" id="day-empty" style="display:none">Aucune tâche cochable ce jour.</p>
+  </div>
+</div>

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(./node_modules/.bin/eleventy *)",
+      "Read(//Users/aloispetit/**)",
+      "Bash(npm config *)",
+      "Bash(curl -s --max-time 5 https://registry.npmjs.org/@11ty/eleventy/latest)",
+      "Bash(npm pack *)",
+      "Bash(npx --yes @11ty/eleventy)",
+      "Bash(npx --yes @11ty/eleventy --serve --port 8080)",
+      "Bash(curl -s http://localhost:8080/)",
+      "Bash(pkill -f \"eleventy\")",
+      "Bash(node gen-icons.js)"
+    ]
+  }
+}

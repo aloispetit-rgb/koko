@@ -1,0 +1,46 @@
+/* ---- Custom properties ---- */
+:root {
+  --font-display: 'Baloo 2', cursive;
+  --font-body: 'Nunito', sans-serif;
+
+  --color-bg-gradient: linear-gradient(
+    to bottom,
+    #1A1A54,
+    #452C8E,
+    #8748A9,
+    #D465A8,
+    #E895AA,
+    #F8BDAB
+  );
+
+  --color-header: #1A1A54;
+  --color-text: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.65);
+  --color-card-bg: rgba(255, 255, 255, 1);
+  --color-card-text: #1A1A54;
+  --color-card-radius: 15px;
+  --color-check-done: #4CAF50;
+}
+
+/* ---- Reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  min-height: 100vh;
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}

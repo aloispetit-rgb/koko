@@ -1,0 +1,357 @@
+/* ---- Header ---- */
+.app-header {
+  position: relative;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  justify-content: left;
+  padding: 30px;
+  gap: 2px;
+}
+
+.header-time {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.header-date {
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* ---- Timeline ---- */
+.timeline {
+  padding-top: calc(var(--header-height) + 24px);
+  padding-left: 30px;
+  padding-right: 30px;
+  padding-bottom: 30px;
+  min-height: 100vh;
+}
+
+.timeline-empty {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--color-text);
+  padding: 60px 16px;
+  font-weight: 700;
+}
+
+/* ---- Periods ---- */
+.period {
+  margin-bottom: 32px;
+}
+
+.period-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.period-separator::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.period-name {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.period-time-start,
+.period-time-end {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.period-time-start {
+  margin-bottom: 10px;
+}
+
+.period-time-end {
+  margin-top: 10px;
+}
+
+/* ---- Task cards ---- */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-card {
+  background: var(--color-card-bg);
+  border-radius: var(--color-card-radius);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 15px;
+  min-height: 50px;
+  transition: opacity 0.3s ease;
+}
+
+.task-card.task-done {
+  opacity: 1;
+}
+
+.task-emoji {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 42px;
+  text-align: center;
+}
+
+.task-label {
+  font-family: var(--font-body);
+  font-size: 18px;
+  color: var(--color-card-text);
+  font-weight: 600;
+  flex: 1;
+  line-height: 1.2;
+}
+
+.task-card.task-done .task-label {
+
+}
+
+/* ---- Tâches passives (image) ---- */
+.task-passive {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.task-passive-label {
+  display: none;
+}
+
+.task-passive-img {
+  display: block;
+  width: 100%;
+  min-height: 140px;
+  height: auto;
+  border-radius: 16px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ---- Check button ---- */
+.task-check {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 20px 20px 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.task-check:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.task-check-inner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid #F8BDAB;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.task-check:active .task-check-inner {
+  transform: scale(0.88);
+}
+
+.task-check-done .task-check-inner {
+  background: var(--color-check-done);
+  border-color: var(--color-check-done);
+}
+
+/* ---- Bouton calendrier ---- */
+.btn-calendar {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 20px;
+  padding: 10px 18px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 30px 16px;
+  min-height: 44px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-calendar:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ---- Overlay calendrier ---- */
+.calendar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
+  flex-direction: column;
+  z-index: 200;
+  overflow-y: auto;
+}
+
+.cal-topbar {
+  background: var(--color-header);
+  padding: 20px 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.cal-back-btn {
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cal-month-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.cal-nav-btn {
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cal-nav-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.cal-nav-btn:not(:disabled):active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ---- Grille ---- */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 16px;
+}
+
+.cal-header-cell {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 4px 0 8px;
+}
+
+.cal-cell {
+  min-height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cal-cell-empty {
+  background: none;
+}
+
+.cal-cell-future {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cal-cell-today {
+  background: rgba(255, 255, 255, 0.22);
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.cal-day-num {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1;
+}
+
+.cal-cell-today .cal-day-num {
+  color: white;
+  font-weight: 800;
+}
+
+.cal-cell-future .cal-day-num {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cal-smiley {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+}

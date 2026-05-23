@@ -1,0 +1,31 @@
+---
+layout: layout.njk
+title: Koko
+extraCss: child.css
+extraJs:
+  - timeUtils.js
+  - storage.js
+  - recurrence.js
+  - periods.js
+  - smiley.js
+  - calendar.js
+  - app.js
+---
+
+{% include "header.njk" %}
+
+<button class="btn-calendar" id="btn-calendar">📅 Mon mois</button>
+
+<main class="timeline" id="timeline"></main>
+
+<div class="calendar-overlay" id="calendar-overlay">
+  <div class="cal-topbar">
+    <button class="cal-back-btn" id="cal-back-btn">← Retour</button>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" id="cal-prev-btn" aria-label="Mois précédent">‹</button>
+      <span class="cal-month-title" id="cal-month-title"></span>
+      <button class="cal-nav-btn" id="cal-next-btn" aria-label="Mois suivant">›</button>
+    </div>
+  </div>
+  <div class="calendar-grid" id="calendar-grid"></div>
+</div>
