@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1A1A54">
+  <title>Koko</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/child.css">
+</head>
+<body>
+  
+<header class="app-header">
+  <div class="header-time" id="header-time">--:--</div>
+  <div class="header-date" id="header-date">&nbsp;</div>
+</header>
+
+
+<button class="btn-calendar" id="btn-calendar">📅 Mon mois</button>
+
+<main class="timeline" id="timeline"></main>
+
+<div class="calendar-overlay" id="calendar-overlay">
+  <div class="cal-topbar">
+    <button class="cal-back-btn" id="cal-back-btn">← Retour</button>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" id="cal-prev-btn" aria-label="Mois précédent">‹</button>
+      <span class="cal-month-title" id="cal-month-title"></span>
+      <button class="cal-nav-btn" id="cal-next-btn" aria-label="Mois suivant">›</button>
+    </div>
+  </div>
+  <div class="calendar-grid" id="calendar-grid"></div>
+</div>
+
+  
+  
+  <script src="/assets/js/timeUtils.js"></script>
+  
+  <script src="/assets/js/storage.js"></script>
+  
+  <script src="/assets/js/recurrence.js"></script>
+  
+  <script src="/assets/js/periods.js"></script>
+  
+  <script src="/assets/js/smiley.js"></script>
+  
+  <script src="/assets/js/calendar.js"></script>
+  
+  <script src="/assets/js/app.js"></script>
+  
+  
+</body>
+</html>
