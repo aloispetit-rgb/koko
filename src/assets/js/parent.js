@@ -709,28 +709,30 @@ function exportData() {
   URL.revokeObjectURL(url);
 }
 
+function applyImport(jsonStr) {
+  var data;
+  try { data = JSON.parse(jsonStr); } catch (_) {
+    document.getElementById('import-error').textContent = 'JSON invalide.';
+    return;
+  }
+  if (!data['koko-periods']) {
+    document.getElementById('import-error').textContent = 'Ce fichier n\'est pas un backup Koko valide.';
+    return;
+  }
+  if (!confirm('Cette action remplacera toutes les données actuelles. Continuer ?')) return;
+  var toRemove = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var k = localStorage.key(i);
+    if (k && k.startsWith('koko-')) toRemove.push(k);
+  }
+  toRemove.forEach(function (k) { localStorage.removeItem(k); });
+  Object.keys(data).forEach(function (k) { localStorage.setItem(k, data[k]); });
+  location.reload();
+}
+
 function importData(file) {
   var reader = new FileReader();
-  reader.onload = function (e) {
-    var data;
-    try { data = JSON.parse(e.target.result); } catch (_) {
-      document.getElementById('import-error').textContent = 'Fichier JSON invalide.';
-      return;
-    }
-    if (!data['koko-periods']) {
-      document.getElementById('import-error').textContent = 'Ce fichier n\'est pas un backup Koko valide.';
-      return;
-    }
-    if (!confirm('Cette action remplacera toutes les données actuelles. Continuer ?')) return;
-    var toRemove = [];
-    for (var i = 0; i < localStorage.length; i++) {
-      var k = localStorage.key(i);
-      if (k && k.startsWith('koko-')) toRemove.push(k);
-    }
-    toRemove.forEach(function (k) { localStorage.removeItem(k); });
-    Object.keys(data).forEach(function (k) { localStorage.setItem(k, data[k]); });
-    location.reload();
-  };
+  reader.onload = function (e) { applyImport(e.target.result); };
   reader.readAsText(file);
 }
 
@@ -835,7 +837,13 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   document.getElementById('import-file-input').addEventListener('change', function (e) {
     var file = e.target.files && e.target.files[0];
-    if (file) importData(file);
+    if (file) { document.getElementById('import-error').textContent = ''; importData(file); }
+  });
+  document.getElementById('btn-import-paste').addEventListener('click', function () {
+    var text = document.getElementById('import-paste-area').value.trim();
+    if (!text) { document.getElementById('import-error').textContent = 'Le champ est vide.'; return; }
+    document.getElementById('import-error').textContent = '';
+    applyImport(text);
   });
 
   // Calendar

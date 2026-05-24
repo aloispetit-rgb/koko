@@ -744,6 +744,17 @@
 
 .prenom-row .form-input { flex: 1; }
 
+/* ---- Import textarea ---- */
+.import-paste-group { margin-top: 16px; }
+
+.import-paste-area {
+  resize: vertical;
+  min-height: 90px;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* ---- Export / Import ---- */
 .data-actions {
   display: flex;

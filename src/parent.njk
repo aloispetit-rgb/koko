@@ -114,9 +114,14 @@ extraJs:
       <div class="data-actions">
         <button class="btn-data" id="btn-export">⬇️ Exporter les données</button>
         <button class="btn-data" id="btn-import">⬆️ Importer des données</button>
-        <input type="file" id="import-file-input" accept=".json" style="display:none">
+        <input type="file" id="import-file-input" accept="*/*" style="display:none">
       </div>
       <p class="settings-error" id="import-error" aria-live="polite"></p>
+      <div class="form-group import-paste-group">
+        <label class="form-label" for="import-paste-area">Ou coller le JSON ici</label>
+        <textarea class="form-input import-paste-area" id="import-paste-area" rows="4" placeholder='{"koko-periods": [...], ...}' spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+        <button class="btn-data" id="btn-import-paste">⬆️ Importer depuis le texte collé</button>
+      </div>
     </div>
   </div>
 </div>
