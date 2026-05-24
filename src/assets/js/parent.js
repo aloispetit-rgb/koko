@@ -710,23 +710,41 @@ function exportData() {
 }
 
 function applyImport(jsonStr) {
+  var errEl = document.getElementById('import-error');
+
+  console.log('[koko import] contenu brut reçu :', jsonStr.slice(0, 500));
+
+  if (!jsonStr || !jsonStr.trim()) {
+    errEl.textContent = 'Fichier vide.';
+    return;
+  }
+
   var data;
-  try { data = JSON.parse(jsonStr); } catch (_) {
-    document.getElementById('import-error').textContent = 'JSON invalide.';
+  try {
+    data = JSON.parse(jsonStr);
+  } catch (e) {
+    console.log('[koko import] JSON.parse error :', e.message);
+    errEl.textContent = 'JSON invalide : ' + e.message;
     return;
   }
-  if (!data['koko-periods']) {
-    document.getElementById('import-error').textContent = 'Ce fichier n\'est pas un backup Koko valide.';
+
+  var kokoKeys = Object.keys(data).filter(function (k) { return k.startsWith('koko-'); });
+  console.log('[koko import] clés koko- trouvées :', kokoKeys);
+
+  if (!kokoKeys.length) {
+    errEl.textContent = 'Aucune clé koko- trouvée dans ce fichier. Est-ce bien un export Koko ?';
     return;
   }
+
   if (!confirm('Cette action remplacera toutes les données actuelles. Continuer ?')) return;
+
   var toRemove = [];
   for (var i = 0; i < localStorage.length; i++) {
     var k = localStorage.key(i);
     if (k && k.startsWith('koko-')) toRemove.push(k);
   }
   toRemove.forEach(function (k) { localStorage.removeItem(k); });
-  Object.keys(data).forEach(function (k) { localStorage.setItem(k, data[k]); });
+  kokoKeys.forEach(function (k) { localStorage.setItem(k, data[k]); });
   location.reload();
 }
 
