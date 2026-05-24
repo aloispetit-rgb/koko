@@ -106,6 +106,7 @@ var TEST_CHECKINS = {
 
 var currentDateStr = '';
 var isFirstLoad = true;
+var lastKnownDate = null;
 
 function seedDefaultData() {
   if (localStorage.getItem('koko-seed') !== SEED_VERSION) {
@@ -133,7 +134,7 @@ function buildPassiveTask(task) {
 
   var img = document.createElement('img');
   img.className = 'task-passive-img';
-  img.src = SITE_BASE + '/assets/img/periods/' + task.image + '.png';
+  img.src = task.imageData || (SITE_BASE + '/assets/img/periods/' + task.image + '.png');
   img.alt = task.label;
 
   block.appendChild(labelEl);
@@ -204,7 +205,7 @@ function buildPeriodSection(period, checkins) {
     var taskList = document.createElement('div');
     taskList.className = 'task-list';
     period.tasks.forEach(function (task) {
-      if (task.image) {
+      if (task.image || task.imageData) {
         taskList.appendChild(buildPassiveTask(task));
       } else {
         var done = !!(checkins[task.id] && checkins[task.id].done);
@@ -227,8 +228,90 @@ function handleTaskToggle(taskId) {
   var checkins = Storage.getCheckins(currentDateStr);
   var wasDone = !!(checkins[taskId] && checkins[taskId].done);
   Storage.toggleTask(currentDateStr, taskId);
-  if (!wasDone) playCheckSound();
-  renderTimeline();
+  if (!wasDone) {
+    playCheckSound();
+    renderTimeline();
+    if (allTasksDone()) triggerCelebration();
+  } else {
+    renderTimeline();
+  }
+}
+
+function allTasksDone() {
+  var periods = Storage.getPeriods();
+  var active = getActivePeriodsForDay(periods, currentDateStr);
+  var checkable = [];
+  active.forEach(function (p) {
+    p.tasks.forEach(function (t) { if (!t.image && !t.imageData) checkable.push(t); });
+  });
+  if (!checkable.length) return false;
+  var ch = Storage.getCheckins(currentDateStr);
+  return checkable.every(function (t) { return ch[t.id] && ch[t.id].done; });
+}
+
+function triggerCelebration() {
+  var key = 'koko-celebration-' + currentDateStr;
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, '1');
+  playCelebrationSound();
+  showCelebration();
+}
+
+function playCelebrationSound() {
+  try {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    var ctx = new AudioCtx();
+    var notes = [523.25, 659.25, 783.99, 1046.50]; // C5 E5 G5 C6
+    notes.forEach(function (freq, i) {
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      var t0 = ctx.currentTime + i * 0.13;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.28, t0 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
+      osc.start(t0);
+      osc.stop(t0 + 0.6);
+    });
+  } catch (e) {}
+}
+
+function showCelebration() {
+  var overlay = document.createElement('div');
+  overlay.className = 'celebration-overlay';
+
+  var prenom = localStorage.getItem('koko-prenom') || '';
+  var msg = document.createElement('div');
+  msg.className = 'celebration-msg';
+  msg.textContent = prenom ? 'Bravo ' + prenom + ' ! 🎉' : 'Bravo ! 🎉';
+  overlay.appendChild(msg);
+
+  var colors = ['#F8BDAB','#D465A8','#8748A9','#FFD700','#4ADE80','#60A5FA','#FB923C','#ffffff'];
+  for (var i = 0; i < 60; i++) {
+    var piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    var size = 7 + Math.random() * 7;
+    var duration = 2 + Math.random() * 1.5;
+    var delay = Math.random() * 1.4;
+    piece.style.cssText =
+      'left:' + Math.random() * 100 + '%;' +
+      'width:' + size + 'px;' +
+      'height:' + (size * (0.4 + Math.random() * 0.8)) + 'px;' +
+      'background:' + colors[Math.floor(Math.random() * colors.length)] + ';' +
+      'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px') + ';' +
+      'animation-duration:' + duration + 's;' +
+      'animation-delay:' + delay + 's;';
+    overlay.appendChild(piece);
+  }
+
+  document.body.appendChild(overlay);
+  setTimeout(function () {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }, 4000);
 }
 
 function playCheckSound() {
@@ -318,28 +401,97 @@ function scrollToCurrent(active) {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function getGreeting(hour, prenom) {
+  if (!prenom) return '';
+  if (hour >= 5  && hour < 12) return 'Bonjour ' + prenom + ' !';
+  if (hour >= 12 && hour < 18) return 'Bon après-midi ' + prenom + ' !';
+  if (hour >= 18 && hour < 22) return 'Bonsoir ' + prenom + ' !';
+  return 'Bonne nuit ' + prenom + ' !';
+}
+
 function updateHeader() {
   var now = new Date();
   document.getElementById('header-time').textContent = formatTime(now);
   document.getElementById('header-date').textContent = formatDisplayDate(now);
+  var prenom = localStorage.getItem('koko-prenom') || '';
+  document.getElementById('header-greeting').textContent = getGreeting(now.getHours(), prenom);
 }
 
-function tick() {
-  var newDate = getTodayDateString();
-  if (newDate !== currentDateStr) {
-    currentDateStr = newDate;
-    isFirstLoad = true;
-  }
+function onNouveauJour() {
+  currentDateStr = lastKnownDate;
+  isFirstLoad = true;
   updateHeader();
   renderTimeline();
 }
 
+function tick() {
+  var today = getTodayDateString();
+  if (today !== lastKnownDate) {
+    lastKnownDate = today;
+    onNouveauJour();
+  } else {
+    updateHeader();
+    renderTimeline();
+  }
+}
+
+function migratePeriodsCreatedAt() {
+  var periods = Storage.getPeriods();
+  var needsSave = false;
+  periods.forEach(function (p) {
+    if (p.createdAt) return;
+    var earliest = null;
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (!key || !key.startsWith('koko-checkins-')) continue;
+      var ds = key.replace('koko-checkins-', '');
+      var ch = Storage.getCheckins(ds);
+      var hasAny = p.tasks.some(function (t) { return ch[t.id] && ch[t.id].done; });
+      if (hasAny && (!earliest || ds < earliest)) earliest = ds;
+    }
+    p.createdAt = earliest || getTodayDateString();
+    needsSave = true;
+  });
+  if (needsSave) Storage.savePeriods(periods);
+}
+
 function init() {
   currentDateStr = getTodayDateString();
+  lastKnownDate = currentDateStr;
   seedDefaultData();
+  migratePeriodsCreatedAt();
   updateHeader();
   renderTimeline();
   setInterval(tick, 60000);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', function () {
+  init();
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    var today = getTodayDateString();
+    if (today !== lastKnownDate) {
+      lastKnownDate = today;
+      onNouveauJour();
+    } else {
+      updateHeader();
+    }
+  });
+  var secretTaps = 0;
+  var secretTimer = null;
+  var zone = document.getElementById('secret-zone');
+  function handleSecretTap(e) {
+    e.stopPropagation();
+    secretTaps++;
+    clearTimeout(secretTimer);
+    if (secretTaps >= 5) {
+      secretTaps = 0;
+      window.location.href = SITE_BASE + '/parent/';
+      return;
+    }
+    secretTimer = setTimeout(function () { secretTaps = 0; }, 3000);
+  }
+  zone.addEventListener('click', handleSecretTap);
+  zone.addEventListener('touchend', function (e) { e.preventDefault(); handleSecretTap(e); }, { passive: false });
+});

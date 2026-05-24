@@ -4,6 +4,7 @@ function periodMatchesDay(period, dateStr) {
   var r = period.recurrence;
   var exceptions = period.exceptions || [];
 
+  if (period.createdAt && dateStr < period.createdAt) return false;
   if (exceptions.indexOf(dateStr) !== -1) return false;
 
   switch (r.type) {
@@ -25,7 +26,7 @@ function periodMatchesDay(period, dateStr) {
 
     case 'until_done': {
       if (dateStr < r.since) return false;
-      var checkableTasks = period.tasks.filter(function (t) { return !t.image; });
+      var checkableTasks = period.tasks.filter(function (t) { return !t.image && !t.imageData; });
       var checkDate = new Date(r.since + 'T12:00:00');
       var targetDate = new Date(dateStr + 'T12:00:00');
       while (checkDate < targetDate) {

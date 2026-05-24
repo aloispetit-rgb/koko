@@ -266,6 +266,7 @@ function savePeriod() {
 
   var period = {
     id: pfEditingId || genId(),
+    createdAt: existing ? (existing.createdAt || getTodayDateString()) : getTodayDateString(),
     name: name,
     emoji: document.getElementById('pf-emoji').value.trim() || '📌',
     startHour: parseInt(document.getElementById('pf-start-hour').value) || 0,
@@ -299,7 +300,7 @@ function openTasksOverlay(periodId) {
   document.getElementById('tasks-overlay-title').textContent = (p ? p.name : '') + ' — Tâches';
   document.getElementById('new-task-label').value = '';
   document.getElementById('new-task-emoji').value = '';
-  document.getElementById('new-task-image').value = '';
+  resetImagePreview();
   setTaskTypeMode('emoji');
   renderTasksEditList();
   showOverlay('tasks-overlay');
@@ -314,7 +315,7 @@ function renderTasksEditList() {
   tasks.forEach(function (t, i) {
     var item = document.createElement('div');
     item.className = 'task-edit-item';
-    var icon = t.image ? '🖼️' : (t.emoji || '?');
+    var icon = (t.image || t.imageData) ? '🖼️' : (t.emoji || '?');
     item.innerHTML =
       '<span class="task-edit-icon">' + icon + '</span>' +
       '<span class="task-edit-label">' + escHtml(t.label) + '</span>' +
@@ -358,13 +359,40 @@ function deleteTask(i) {
 }
 
 var taskTypeMode = 'emoji';
+var newTaskImageData = null;
 
 function setTaskTypeMode(mode) {
   taskTypeMode = mode;
+  if (mode === 'emoji') { newTaskImageData = null; resetImagePreview(); }
   document.getElementById('task-type-emoji-btn').classList.toggle('task-type-active', mode === 'emoji');
   document.getElementById('task-type-image-btn').classList.toggle('task-type-active', mode === 'image');
   document.getElementById('new-task-emoji-group').style.display = mode === 'emoji' ? '' : 'none';
   document.getElementById('new-task-image-group').style.display = mode === 'image' ? '' : 'none';
+}
+
+function resetImagePreview() {
+  newTaskImageData = null;
+  document.getElementById('new-task-image-preview').style.display = 'none';
+  document.getElementById('new-task-image-preview-img').src = '';
+  document.getElementById('new-task-image-file').value = '';
+}
+
+function compressImage(file, callback) {
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var img = new Image();
+    img.onload = function () {
+      var maxW = 800;
+      var scale = img.width > maxW ? maxW / img.width : 1;
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function addTask() {
@@ -375,9 +403,8 @@ function addTask() {
   if (taskTypeMode === 'emoji') {
     task.emoji = document.getElementById('new-task-emoji').value.trim() || '•';
   } else {
-    var img = document.getElementById('new-task-image').value.trim();
-    if (!img) { alert('Le nom de l\'image est requis.'); return; }
-    task.image = img;
+    if (!newTaskImageData) { alert('Sélectionnez une image.'); return; }
+    task.imageData = newTaskImageData;
   }
 
   var periods = Storage.getPeriods();
@@ -388,7 +415,7 @@ function addTask() {
 
   document.getElementById('new-task-label').value = '';
   document.getElementById('new-task-emoji').value = '';
-  document.getElementById('new-task-image').value = '';
+  resetImagePreview();
   renderTasksEditList();
 }
 
@@ -468,7 +495,7 @@ function getPCalSmiley(periods, dateStr) {
   var active = getActivePeriodsForDay(periods, dateStr);
   var checkable = [];
   active.forEach(function (p) {
-    p.tasks.forEach(function (t) { if (!t.image) checkable.push(t); });
+    p.tasks.forEach(function (t) { if (!t.image && !t.imageData) checkable.push(t); });
   });
   if (!checkable.length) return null;
   var ch = Storage.getCheckins(dateStr);
@@ -496,7 +523,7 @@ function renderDayOverlay() {
 
   var checkable = [];
   active.forEach(function (p) {
-    p.tasks.forEach(function (t) { if (!t.image) checkable.push(t); });
+    p.tasks.forEach(function (t) { if (!t.image && !t.imageData) checkable.push(t); });
   });
 
   var emptyEl = document.getElementById('day-empty');
@@ -533,6 +560,8 @@ function initSettingsTab() {
   updateSettingsDots();
   buildMiniKeypad('old-pin-keypad', 'old');
   buildMiniKeypad('new-pin-keypad', 'new');
+  document.getElementById('input-prenom').value = localStorage.getItem('koko-prenom') || '';
+  document.getElementById('prenom-success').textContent = '';
 }
 
 function buildMiniKeypad(containerId, target) {
@@ -620,6 +649,91 @@ async function validateNewPinConfirm() {
   setTimeout(function () { document.getElementById('settings-pin-success').textContent = ''; }, 3000);
 }
 
+/* ---- Image gallery ---- */
+function openGallery() {
+  var periods = Storage.getPeriods();
+  var seen = [];
+  var images = [];
+  periods.forEach(function (p) {
+    (p.tasks || []).forEach(function (t) {
+      if (t.imageData && seen.indexOf(t.imageData) === -1) {
+        seen.push(t.imageData);
+        images.push({ imageData: t.imageData, label: t.label });
+      }
+    });
+  });
+
+  var emptyEl = document.getElementById('gallery-empty');
+  var grid = document.getElementById('gallery-grid');
+  grid.innerHTML = '';
+
+  if (!images.length) {
+    emptyEl.style.display = '';
+    showOverlay('gallery-overlay');
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  images.forEach(function (item) {
+    var thumb = document.createElement('div');
+    thumb.className = 'gallery-thumb';
+    var img = document.createElement('img');
+    img.alt = item.label;
+    img.src = item.imageData;
+    thumb.appendChild(img);
+    thumb.addEventListener('click', function () {
+      newTaskImageData = item.imageData;
+      document.getElementById('new-task-image-preview-img').src = item.imageData;
+      document.getElementById('new-task-image-preview').style.display = '';
+      hideOverlay('gallery-overlay');
+    });
+    grid.appendChild(thumb);
+  });
+
+  showOverlay('gallery-overlay');
+}
+
+/* ---- Export / Import ---- */
+function exportData() {
+  var data = {};
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (key && key.startsWith('koko-')) data[key] = localStorage.getItem(key);
+  }
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'koko-backup-' + getTodayDateString() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(file) {
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var data;
+    try { data = JSON.parse(e.target.result); } catch (_) {
+      document.getElementById('import-error').textContent = 'Fichier JSON invalide.';
+      return;
+    }
+    if (!data['koko-periods']) {
+      document.getElementById('import-error').textContent = 'Ce fichier n\'est pas un backup Koko valide.';
+      return;
+    }
+    if (!confirm('Cette action remplacera toutes les données actuelles. Continuer ?')) return;
+    var toRemove = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.startsWith('koko-')) toRemove.push(k);
+    }
+    toRemove.forEach(function (k) { localStorage.removeItem(k); });
+    Object.keys(data).forEach(function (k) { localStorage.setItem(k, data[k]); });
+    location.reload();
+  };
+  reader.readAsText(file);
+}
+
 /* ---- Init ---- */
 document.addEventListener('DOMContentLoaded', function () {
   // PIN gate
@@ -682,12 +796,47 @@ document.addEventListener('DOMContentLoaded', function () {
   // Tasks overlay
   document.getElementById('tasks-overlay-back').addEventListener('click', function () {
     hideOverlay('tasks-overlay');
-    // Refresh period form tasks count if still open
     renderPeriodsTab();
   });
   document.getElementById('task-type-emoji-btn').addEventListener('click', function () { setTaskTypeMode('emoji'); });
   document.getElementById('task-type-image-btn').addEventListener('click', function () { setTaskTypeMode('image'); });
   document.getElementById('btn-add-task').addEventListener('click', addTask);
+
+  document.getElementById('new-task-image-btn').addEventListener('click', function () {
+    document.getElementById('new-task-image-file').click();
+  });
+  document.getElementById('new-task-image-file').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    compressImage(file, function (dataUrl) {
+      newTaskImageData = dataUrl;
+      document.getElementById('new-task-image-preview-img').src = dataUrl;
+      document.getElementById('new-task-image-preview').style.display = '';
+    });
+  });
+  document.getElementById('new-task-gallery-btn').addEventListener('click', openGallery);
+  document.getElementById('gallery-overlay-back').addEventListener('click', function () { hideOverlay('gallery-overlay'); });
+
+  // Prenom
+  document.getElementById('btn-save-prenom').addEventListener('click', function () {
+    var val = document.getElementById('input-prenom').value.trim();
+    if (val) localStorage.setItem('koko-prenom', val);
+    else localStorage.removeItem('koko-prenom');
+    document.getElementById('prenom-success').textContent = 'Enregistré ✓';
+    setTimeout(function () { document.getElementById('prenom-success').textContent = ''; }, 2000);
+  });
+
+  // Export / Import
+  document.getElementById('btn-export').addEventListener('click', exportData);
+  document.getElementById('btn-import').addEventListener('click', function () {
+    document.getElementById('import-error').textContent = '';
+    document.getElementById('import-file-input').value = '';
+    document.getElementById('import-file-input').click();
+  });
+  document.getElementById('import-file-input').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (file) importData(file);
+  });
 
   // Calendar
   document.getElementById('pcal-prev-btn').addEventListener('click', function () {

@@ -13,6 +13,16 @@
   gap: 2px;
 }
 
+#secret-zone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
 .header-time {
   font-family: var(--font-display);
   font-size: 56px;
@@ -26,6 +36,14 @@
   font-size: 16px;
   color: var(--color-text-muted);
   font-weight: 400;
+}
+
+.header-greeting {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 4px;
 }
 
 /* ---- Timeline ---- */
@@ -354,4 +372,49 @@
   height: 30px;
   object-fit: contain;
   display: block;
+}
+
+/* ---- Célébration ---- */
+.celebration-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: celebration-fade-out 0.8s ease 3.2s forwards;
+}
+
+@keyframes celebration-fade-out {
+  to { opacity: 0; }
+}
+
+.celebration-msg {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 800;
+  color: white;
+  text-align: center;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  animation: celebration-msg-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  padding: 0 24px;
+}
+
+@keyframes celebration-msg-pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.confetti-piece {
+  position: fixed;
+  top: -16px;
+  border-radius: 2px;
+  animation: confetti-fall linear forwards;
+}
+
+@keyframes confetti-fall {
+  0%   { transform: translateY(0)    rotate(0deg)   scaleX(1); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translateY(105vh) rotate(700deg) scaleX(-1); opacity: 0; }
 }

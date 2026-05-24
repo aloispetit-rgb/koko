@@ -40,7 +40,7 @@ function getDaySmiley(periods, dateStr) {
   var checkable = [];
   activePeriods.forEach(function (p) {
     p.tasks.forEach(function (t) {
-      if (!t.image) checkable.push(t);
+      if (!t.image && !t.imageData) checkable.push(t);
     });
   });
   if (!checkable.length) return null;

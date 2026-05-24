@@ -96,6 +96,28 @@ extraJs:
         <p class="settings-success" id="settings-pin-success" aria-live="polite"></p>
       </div>
     </div>
+
+    <div class="settings-section">
+      <h2 class="settings-title">Prénom de l'enfant</h2>
+      <div class="form-group">
+        <label class="form-label" for="input-prenom">Prénom</label>
+        <div class="prenom-row">
+          <input class="form-input" type="text" id="input-prenom" placeholder="Koko" maxlength="30" autocomplete="off">
+          <button class="btn-save" id="btn-save-prenom">OK</button>
+        </div>
+      </div>
+      <p class="settings-success" id="prenom-success" aria-live="polite"></p>
+    </div>
+
+    <div class="settings-section">
+      <h2 class="settings-title">Données</h2>
+      <div class="data-actions">
+        <button class="btn-data" id="btn-export">⬇️ Exporter les données</button>
+        <button class="btn-data" id="btn-import">⬆️ Importer des données</button>
+        <input type="file" id="import-file-input" accept=".json" style="display:none">
+      </div>
+      <p class="settings-error" id="import-error" aria-live="polite"></p>
+    </div>
   </div>
 </div>
 
@@ -236,9 +258,15 @@ extraJs:
         <input class="form-input form-input-emoji" type="text" id="new-task-emoji" maxlength="2" placeholder="🪥">
       </div>
       <div class="form-group" id="new-task-image-group" style="display:none">
-        <label class="form-label">Nom de l'image</label>
-        <input class="form-input" type="text" id="new-task-image" placeholder="ecole">
-        <p class="form-hint">Fichier dans /assets/img/periods/ (sans .png)</p>
+        <label class="form-label">Image</label>
+        <input type="file" id="new-task-image-file" accept="image/*" style="display:none">
+        <div class="image-btn-row">
+          <button type="button" class="btn-secondary" id="new-task-image-btn">📷 Importer</button>
+          <button type="button" class="btn-secondary" id="new-task-gallery-btn">🖼️ Galerie</button>
+        </div>
+        <div id="new-task-image-preview" class="task-image-preview-wrap" style="display:none">
+          <img id="new-task-image-preview-img" class="task-image-preview" alt="Aperçu">
+        </div>
       </div>
       <button type="button" class="btn-primary" id="btn-add-task">+ Ajouter la tâche</button>
     </div>
@@ -254,5 +282,17 @@ extraJs:
   <div class="p-overlay-body">
     <div class="day-tasks-list" id="day-tasks-list"></div>
     <p class="day-empty" id="day-empty" style="display:none">Aucune tâche cochable ce jour.</p>
+  </div>
+</div>
+
+<!-- Overlay : galerie d'images réutilisables -->
+<div class="p-overlay" id="gallery-overlay" style="display:none">
+  <div class="p-overlay-topbar">
+    <button class="p-back-btn" id="gallery-overlay-back">← Retour</button>
+    <span class="p-overlay-title">Galerie</span>
+  </div>
+  <div class="p-overlay-body">
+    <p class="gallery-empty" id="gallery-empty" style="display:none">Aucune image enregistrée. Importez d'abord une image dans une tâche.</p>
+    <div class="gallery-grid" id="gallery-grid"></div>
   </div>
 </div>
