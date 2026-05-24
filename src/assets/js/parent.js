@@ -108,6 +108,9 @@ function renderPeriodsTab() {
   var list = document.getElementById('periods-list');
   list.innerHTML = '';
   periods = periods.filter(function (p) { return !p.deletedAt; });
+  periods = periods.slice().sort(function (a, b) {
+    return (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute);
+  });
   if (!periods.length) {
     var empty = document.createElement('p');
     empty.style.cssText = 'font-family:var(--font-body);color:rgba(255,255,255,.5);text-align:center;padding:32px 0;font-size:16px;';
