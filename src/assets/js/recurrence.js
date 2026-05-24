@@ -5,6 +5,7 @@ function periodMatchesDay(period, dateStr) {
   var exceptions = period.exceptions || [];
 
   if (period.createdAt && dateStr < period.createdAt) return false;
+  if (period.deletedAt && dateStr >= period.deletedAt) return false;
   if (exceptions.indexOf(dateStr) !== -1) return false;
 
   switch (r.type) {

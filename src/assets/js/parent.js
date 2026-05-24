@@ -107,6 +107,7 @@ function renderPeriodsTab() {
   var periods = Storage.getPeriods();
   var list = document.getElementById('periods-list');
   list.innerHTML = '';
+  periods = periods.filter(function (p) { return !p.deletedAt; });
   if (!periods.length) {
     var empty = document.createElement('p');
     empty.style.cssText = 'font-family:var(--font-body);color:rgba(255,255,255,.5);text-align:center;padding:32px 0;font-size:16px;';
@@ -139,8 +140,10 @@ function renderPeriodsTab() {
 }
 
 function deletePeriod(id) {
-  if (!confirm('Supprimer cette période et toutes ses tâches ?')) return;
-  var periods = Storage.getPeriods().filter(function (p) { return p.id !== id; });
+  if (!confirm('Archiver cette période ? Elle ne sera plus visible mais l\'historique sera conservé.')) return;
+  var periods = Storage.getPeriods();
+  var p = periods.find(function (p) { return p.id === id; });
+  if (p) p.deletedAt = getTodayDateString();
   Storage.savePeriods(periods);
   renderPeriodsTab();
 }
