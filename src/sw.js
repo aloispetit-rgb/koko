@@ -1,4 +1,4 @@
-var CACHE_NAME = 'koko-v3';
+var CACHE_NAME = 'koko-v4';
 
 var URLS_TO_CACHE = [
   '/koko/',
@@ -22,8 +22,8 @@ var URLS_TO_CACHE = [
   '/koko/assets/img/calendar/smiley-2.png',
   '/koko/assets/img/calendar/smiley-3.png',
   '/koko/assets/img/calendar/smiley-4.png',
-  '/koko/assets/icons/icon-192.png',
-  '/koko/assets/icons/icon-512.png',
+  '/koko/assets/img/icons/icon-192x192.png',
+  '/koko/assets/img/icons/icon-512x512.png',
   '/koko/manifest.json',
 ];
 
