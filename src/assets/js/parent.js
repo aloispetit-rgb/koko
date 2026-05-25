@@ -417,6 +417,7 @@ function addTask() {
   var p = periods.find(function (x) { return x.id === tasksEditingPeriodId; });
   if (!p) return;
   p.tasks.push(task);
+  console.log('[addTask] tâche à sauvegarder :', JSON.stringify(task).slice(0, 200));
   Storage.savePeriods(periods);
 
   document.getElementById('new-task-label').value = '';

@@ -8,7 +8,12 @@ var Storage = (function () {
   }
 
   function savePeriods(periods) {
-    localStorage.setItem('koko-periods', JSON.stringify(periods));
+    try {
+      localStorage.setItem('koko-periods', JSON.stringify(periods));
+    } catch (e) {
+      console.error('[Storage] savePeriods échoué :', e.name, e.message);
+      alert('Erreur : impossible de sauvegarder (stockage plein ?). ' + e.message);
+    }
   }
 
   function getCheckins(dateStr) {
