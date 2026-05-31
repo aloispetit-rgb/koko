@@ -1,891 +1,1011 @@
-/* ---- PIN ---- */
-var PIN_KEY = 'koko-pin';
-var currentPin = [];
-var pinMode = 'unlock';
-var pendingPin = null;
+/* ---- UUID ---- */
 
-async function sha256(str) {
-  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(function (b) {
-    return b.toString(16).padStart(2, '0');
-  }).join('');
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
 }
 
-function updateDots() {
-  document.querySelectorAll('#pin-dots .pin-dot').forEach(function (dot, i) {
-    dot.classList.toggle('pin-dot-filled', i < currentPin.length);
+/* ---- Hash PIN (SHA-256) ---- */
+
+function hashPin(pin, callback) {
+  var data = new TextEncoder().encode(pin);
+  crypto.subtle.digest('SHA-256', data).then(function (buf) {
+    var hex = Array.from(new Uint8Array(buf))
+      .map(function (b) { return b.toString(16).padStart(2, '0'); })
+      .join('');
+    callback(hex);
   });
+}
+
+/* ---- PIN Gate ---- */
+
+var pinBuffer    = '';
+var pinSetupMode = false;
+
+function updatePinDots(dotsId, count) {
+  document.querySelectorAll('#' + dotsId + ' .pin-dot').forEach(function (d, i) {
+    d.classList.toggle('pin-dot-filled', i < count);
+  });
+}
+
+function shakePinDots() {
+  var dotsEl = document.getElementById('pin-dots');
+  dotsEl.classList.add('pin-shake');
+  dotsEl.addEventListener('animationend', function () {
+    dotsEl.classList.remove('pin-shake');
+  }, { once: true });
 }
 
 function showPinError(msg) {
   document.getElementById('pin-error').textContent = msg;
-  var dots = document.getElementById('pin-dots');
-  dots.classList.remove('pin-shake');
-  void dots.offsetWidth;
-  dots.classList.add('pin-shake');
-  dots.addEventListener('animationend', function () { dots.classList.remove('pin-shake'); }, { once: true });
 }
 
-function clearPinError() { document.getElementById('pin-error').textContent = ''; }
-function clearPin() { currentPin = []; updateDots(); }
-function setPinTitle(t) { document.getElementById('pin-title').textContent = t; }
-
-function enterCreateMode() { pinMode = 'create'; pendingPin = null; clearPin(); clearPinError(); setPinTitle('Choisir un code parent'); }
-function enterUnlockMode() { pinMode = 'unlock'; pendingPin = null; clearPin(); clearPinError(); setPinTitle('Code parent'); }
-
-function unlock() {
-  document.getElementById('pin-gate').style.display = 'none';
-  document.getElementById('parent-content').style.display = 'flex';
-  renderPeriodsTab();
+function unlockParent() {
+  document.getElementById('pin-gate').style.display       = 'none';
+  document.getElementById('parent-content').style.display = '';
+  renderTaskList();
+  renderArchivedList();
+  renderGallery();
 }
 
-function lock() {
-  document.getElementById('parent-content').style.display = 'none';
-  document.getElementById('pin-gate').style.display = 'flex';
-  enterUnlockMode();
-}
-
-async function validatePin() {
-  var pinStr = currentPin.join('');
-  if (pinMode === 'create') {
-    pendingPin = pinStr; pinMode = 'confirm'; clearPin(); clearPinError(); setPinTitle('Confirmer le code'); return;
-  }
-  if (pinMode === 'confirm') {
-    if (pinStr !== pendingPin) {
-      showPinError('Les codes ne correspondent pas'); clearPin(); pendingPin = null; pinMode = 'create'; setPinTitle('Choisir un code parent'); return;
+function onPinComplete(pin) {
+  hashPin(pin, function (hash) {
+    if (pinSetupMode) {
+      Storage.savePin(hash);
+      unlockParent();
+      return;
     }
-    localStorage.setItem(PIN_KEY, await sha256(pinStr)); clearPin(); unlock(); return;
+    if (hash === Storage.getPin()) {
+      showPinError('');
+      unlockParent();
+    } else {
+      shakePinDots();
+      showPinError('Code incorrect');
+    }
+  });
+}
+
+function initPinGate() {
+  pinSetupMode = !Storage.getPin();
+  if (pinSetupMode) {
+    document.getElementById('pin-title').textContent = 'Créer votre code';
   }
-  var hash = await sha256(pinStr);
-  if (hash === localStorage.getItem(PIN_KEY)) { clearPin(); unlock(); }
-  else { showPinError('Code incorrect'); clearPin(); }
-}
 
-function addDigit(d) {
-  if (currentPin.length >= 4) return;
-  currentPin.push(d); updateDots(); clearPinError();
-  if (currentPin.length === 4) validatePin();
-}
-
-function removeDigit() { if (!currentPin.length) return; currentPin.pop(); updateDots(); clearPinError(); }
-
-/* ---- Tabs ---- */
-function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach(function (b) {
-    b.classList.toggle('tab-active', b.getAttribute('data-tab') === name);
+  document.querySelectorAll('.pin-key[data-digit]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (pinBuffer.length >= 4) return;
+      pinBuffer += btn.dataset.digit;
+      updatePinDots('pin-dots', pinBuffer.length);
+      if (pinBuffer.length === 4) {
+        var pin = pinBuffer;
+        pinBuffer = '';
+        updatePinDots('pin-dots', 0);
+        onPinComplete(pin);
+      }
+    });
   });
-  document.querySelectorAll('.tab-pane').forEach(function (p) {
-    p.classList.toggle('tab-pane-active', p.id === 'tab-' + name);
+
+  document.getElementById('pin-back').addEventListener('click', function () {
+    if (!pinBuffer.length) return;
+    pinBuffer = pinBuffer.slice(0, -1);
+    showPinError('');
+    updatePinDots('pin-dots', pinBuffer.length);
   });
-  if (name === 'calendar') renderParentCalendar();
-  if (name === 'settings') initSettingsTab();
-}
 
-/* ---- Helpers ---- */
-var DAYS_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-var MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
-function pad2(n) { return String(n).padStart(2, '0'); }
-
-function recurrenceLabel(rec) {
-  if (!rec) return '';
-  if (rec.type === 'always') return 'Tous les jours';
-  if (rec.type === 'weekdays') return (rec.days || []).join(', ');
-  if (rec.type === 'period') return 'Du ' + rec.from + ' au ' + rec.to;
-  if (rec.type === 'once') return 'Le ' + rec.date;
-  if (rec.type === 'dates') return (rec.dates || []).length + ' date(s)';
-  if (rec.type === 'until_done') return 'Jusqu\'à complétion';
-  return '';
-}
-
-function genId() {
-  return 'p-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
-}
-
-/* ---- Periods tab ---- */
-function renderPeriodsTab() {
-  var periods = Storage.getPeriods();
-  var list = document.getElementById('periods-list');
-  list.innerHTML = '';
-  periods = periods.filter(function (p) { return !p.deletedAt; });
-  periods = periods.slice().sort(function (a, b) {
-    return (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute);
+  document.getElementById('btn-lock').addEventListener('click', function () {
+    pinBuffer = '';
+    updatePinDots('pin-dots', 0);
+    showPinError('');
+    document.getElementById('parent-content').style.display = 'none';
+    document.getElementById('pin-gate').style.display       = '';
   });
-  if (!periods.length) {
-    var empty = document.createElement('p');
-    empty.style.cssText = 'font-family:var(--font-body);color:rgba(255,255,255,.5);text-align:center;padding:32px 0;font-size:16px;';
-    empty.textContent = 'Aucune période. Créez-en une !';
-    list.appendChild(empty);
+}
+
+/* ---- Onglets ---- */
+
+var oldPinKp = null;
+var newPinKp = null;
+
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.toggle('tab-active', b === btn);
+      });
+      document.querySelectorAll('.tab-pane').forEach(function (p) {
+        p.classList.toggle('tab-pane-active', p.id === 'tab-' + tab);
+      });
+      if (tab === 'calendar') initParentCalendarTab();
+      if (tab === 'settings') onSettingsTabActivated();
+    });
+  });
+}
+
+/* ---- Résumé récurrence ---- */
+
+function recurrenceSummary(task) {
+  var rec = task.recurrence || {};
+  if (rec.untilCompletion) return 'Jusqu\'à complétion';
+  var every  = rec.every || 1;
+  var unit   = rec.unit  || 'days';
+  var single = { days: 'jour', weeks: 'semaine', months: 'mois', years: 'an' };
+  var plural = { days: 'jours', weeks: 'semaines', months: 'mois', years: 'ans' };
+  var base = every === 1
+    ? 'Chaque ' + single[unit]
+    : 'Tous les ' + every + ' ' + plural[unit];
+  if (unit === 'weeks' && (rec.days || []).length) {
+    var SHORT = { lundi: 'lun', mardi: 'mar', mercredi: 'mer', jeudi: 'jeu', vendredi: 'ven', samedi: 'sam', dimanche: 'dim' };
+    base += ' (' + rec.days.map(function (d) { return SHORT[d] || d; }).join(', ') + ')';
+  }
+  if (unit === 'months' && rec.dayOfMonth) base += ' le ' + rec.dayOfMonth;
+  return base;
+}
+
+/* ---- Ligne horaire (schedule row) ---- */
+
+function buildScheduleRow(schedule) {
+  var li = document.createElement('li');
+  li.className = 'schedule-row';
+
+  var toggle = document.createElement('div');
+  toggle.className = 'task-type-toggle';
+
+  var periodBtn = document.createElement('button');
+  periodBtn.type = 'button';
+  periodBtn.className = 'task-type-btn' + (schedule.type === 'period' ? ' task-type-active' : '');
+  periodBtn.dataset.type = 'period';
+  periodBtn.textContent  = 'Période';
+
+  var timeBtn = document.createElement('button');
+  timeBtn.type = 'button';
+  timeBtn.className = 'task-type-btn' + (schedule.type === 'time' ? ' task-type-active' : '');
+  timeBtn.dataset.type  = 'time';
+  timeBtn.textContent   = 'Heure';
+
+  toggle.appendChild(periodBtn);
+  toggle.appendChild(timeBtn);
+
+  var periodSel = document.createElement('select');
+  periodSel.className = 'form-select sched-period-select';
+  if (schedule.type === 'time') periodSel.style.display = 'none';
+  ['matin', 'matinée', 'midi', 'après-midi', 'goûter', 'soir', 'nuit'].forEach(function (p) {
+    var opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+    if (schedule.type === 'period' && schedule.value === p) opt.selected = true;
+    periodSel.appendChild(opt);
+  });
+
+  var timeInput = document.createElement('input');
+  timeInput.type = 'time';
+  timeInput.className = 'form-input sched-time-input';
+  if (schedule.type === 'time') { timeInput.value = schedule.value || ''; }
+  else                          { timeInput.style.display = 'none'; }
+
+  var removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn-icon';
+  removeBtn.setAttribute('aria-label', 'Supprimer');
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', function () { li.remove(); });
+
+  function activateType(type) {
+    periodBtn.classList.toggle('task-type-active', type === 'period');
+    timeBtn.classList.toggle('task-type-active',   type === 'time');
+    periodSel.style.display = type === 'period' ? '' : 'none';
+    timeInput.style.display = type === 'time'   ? '' : 'none';
+  }
+  periodBtn.addEventListener('click', function () { activateType('period'); });
+  timeBtn.addEventListener('click',   function () { activateType('time');   });
+
+  li.appendChild(toggle);
+  li.appendChild(periodSel);
+  li.appendChild(timeInput);
+  li.appendChild(removeBtn);
+  return li;
+}
+
+/* ---- Ligne exception ---- */
+
+function addExceptionRow(dateStr) {
+  var ul = document.getElementById('exceptions-list');
+  var li = document.createElement('li');
+  li.className    = 'exception-item date-chip';
+  li.dataset.date = dateStr;
+
+  var span = document.createElement('span');
+  span.textContent = dateStr;
+
+  var removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'date-chip-remove';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', function () { li.remove(); });
+
+  li.appendChild(span);
+  li.appendChild(removeBtn);
+  ul.appendChild(li);
+}
+
+/* ---- Visibilité récurrence ---- */
+
+function syncRecurrenceVisibility() {
+  var unit            = document.getElementById('tf-unit').value;
+  var untilCompletion = document.getElementById('tf-until-completion').checked;
+  document.getElementById('tf-days-group').style.display      = unit === 'weeks'  ? '' : 'none';
+  document.getElementById('tf-month-day-group').style.display = unit === 'months' ? '' : 'none';
+  document.getElementById('tf-end-group').style.display       = untilCompletion   ? 'none' : '';
+}
+
+/* ---- Overlay tâche ---- */
+
+var overlayImageId = null;
+
+function openTaskOverlay(task) {
+  overlayImageId = task ? (task.image || null) : null;
+
+  document.getElementById('task-overlay-title').textContent = task ? 'Modifier la tâche' : 'Nouvelle tâche';
+  document.getElementById('tf-id').value    = task ? task.id    : '';
+  document.getElementById('tf-label').value = task ? task.label : '';
+  document.getElementById('tf-emoji').value = (task && task.emoji) ? task.emoji : '';
+
+  var _gallEntry = (task && task.image)
+    ? (Storage.getGallery().filter(function (g) { return g.id === task.image; })[0] || null)
+    : null;
+
+  if (_gallEntry) {
+    overlayImageId = task.image;
+    document.getElementById('tf-type-image-btn').classList.add('task-type-active');
+    document.getElementById('tf-type-emoji-btn').classList.remove('task-type-active');
+    document.getElementById('tf-emoji-group').style.display    = 'none';
+    document.getElementById('tf-image-group').style.display    = '';
+    document.getElementById('tf-image-preview-img').src        = _gallEntry.data;
+    document.getElementById('tf-image-preview').style.display  = '';
+    document.getElementById('tf-gallery-picker').style.display = 'none';
+  } else {
+    overlayImageId = null;
+    document.getElementById('tf-type-emoji-btn').classList.add('task-type-active');
+    document.getElementById('tf-type-image-btn').classList.remove('task-type-active');
+    document.getElementById('tf-emoji-group').style.display    = '';
+    document.getElementById('tf-image-group').style.display    = 'none';
+    document.getElementById('tf-image-preview').style.display  = 'none';
+  }
+
+  var schedList = document.getElementById('schedules-list');
+  schedList.innerHTML = '';
+  var schedules = (task && task.schedules && task.schedules.length)
+    ? task.schedules : [{ type: 'period', value: 'matin' }];
+  schedules.forEach(function (s) { schedList.appendChild(buildScheduleRow(s)); });
+
+  var rec = (task && task.recurrence)
+    ? task.recurrence : { every: 1, unit: 'days', untilCompletion: false };
+  document.getElementById('tf-every').value = rec.every || 1;
+  document.getElementById('tf-unit').value  = rec.unit  || 'days';
+  document.querySelectorAll('input[name="tf-day"]').forEach(function (cb) {
+    cb.checked = (rec.unit === 'weeks' && (rec.days || []).indexOf(cb.value) !== -1);
+  });
+  document.getElementById('tf-day-of-month').value =
+    (rec.unit === 'months' && rec.dayOfMonth) ? rec.dayOfMonth : '';
+  document.getElementById('tf-until-completion').checked = !!rec.untilCompletion;
+
+  var end = (task && task.end) ? task.end : { type: 'never' };
+  var endRadio = document.querySelector('input[name="tf-end"][value="' + (end.type || 'never') + '"]');
+  if (endRadio) endRadio.checked = true;
+  document.getElementById('tf-end-date').value        = end.date        || '';
+  document.getElementById('tf-end-occurrences').value = end.occurrences || '';
+
+  var excList = document.getElementById('exceptions-list');
+  excList.innerHTML = '';
+  if (task && task.exceptions) task.exceptions.forEach(function (ds) { addExceptionRow(ds); });
+
+  document.getElementById('tf-delete-group').style.display = task ? '' : 'none';
+  syncRecurrenceVisibility();
+  document.getElementById('task-overlay').style.display = 'flex';
+  document.getElementById('tf-label').focus();
+}
+
+function closeTaskOverlay() {
+  document.getElementById('task-overlay').style.display = 'none';
+  overlayImageId = null;
+}
+
+function collectFormData() {
+  var schedules = [];
+  document.querySelectorAll('#schedules-list .schedule-row').forEach(function (row) {
+    var activeBtn = row.querySelector('.task-type-btn.task-type-active');
+    var type = activeBtn ? activeBtn.dataset.type : 'period';
+    if (type === 'period') {
+      var sel = row.querySelector('.sched-period-select');
+      if (sel) schedules.push({ type: 'period', value: sel.value });
+    } else {
+      var inp = row.querySelector('.sched-time-input');
+      if (inp && inp.value) schedules.push({ type: 'time', value: inp.value });
+    }
+  });
+
+  var unit = document.getElementById('tf-unit').value;
+  var days = [];
+  if (unit === 'weeks') {
+    document.querySelectorAll('input[name="tf-day"]:checked').forEach(function (cb) { days.push(cb.value); });
+  }
+  var dayOfMonth = null;
+  if (unit === 'months') {
+    dayOfMonth = parseInt(document.getElementById('tf-day-of-month').value, 10) || null;
+  }
+
+  var untilCompletion = document.getElementById('tf-until-completion').checked;
+  var endRadio = document.querySelector('input[name="tf-end"]:checked');
+  var endType  = endRadio ? endRadio.value : 'never';
+  var endDate  = endType === 'date'
+    ? (document.getElementById('tf-end-date').value || null) : null;
+  var endOcc   = endType === 'occurrences'
+    ? (parseInt(document.getElementById('tf-end-occurrences').value, 10) || null) : null;
+
+  var exceptions = [];
+  document.querySelectorAll('#exceptions-list .exception-item').forEach(function (li) {
+    if (li.dataset.date) exceptions.push(li.dataset.date);
+  });
+
+  return {
+    label:   document.getElementById('tf-label').value.trim(),
+    emoji:   document.getElementById('tf-emoji').value.trim() || '•',
+    image:   overlayImageId,
+    schedules: schedules,
+    recurrence: {
+      every:           parseInt(document.getElementById('tf-every').value, 10) || 1,
+      unit:            unit,
+      days:            days,
+      dayOfMonth:      dayOfMonth,
+      untilCompletion: untilCompletion,
+    },
+    end: {
+      type:        untilCompletion ? 'never' : endType,
+      date:        untilCompletion ? null    : endDate,
+      occurrences: untilCompletion ? null    : endOcc,
+    },
+    exceptions: exceptions,
+  };
+}
+
+function saveTask() {
+  var data       = collectFormData();
+  var labelInput = document.getElementById('tf-label');
+  if (!data.label) {
+    labelInput.style.borderColor = 'rgba(255,100,100,0.8)';
+    labelInput.focus();
     return;
   }
-  periods.forEach(function (p) {
-    var item = document.createElement('div');
-    item.className = 'period-item';
-    item.innerHTML =
-      '<span class="period-item-emoji">' + (p.emoji || '📌') + '</span>' +
-      '<div class="period-item-info">' +
-        '<div class="period-item-name">' + escHtml(p.name) + '</div>' +
-        '<div class="period-item-meta">' + pad2(p.startHour) + 'h' + pad2(p.startMinute) + ' – ' + pad2(p.endHour) + 'h' + pad2(p.endMinute) + ' · ' + recurrenceLabel(p.recurrence) + ' · ' + (p.tasks || []).length + ' tâche(s)</div>' +
-      '</div>' +
-      '<div class="period-item-actions">' +
-        '<button class="btn-icon" data-action="edit" data-id="' + p.id + '" title="Modifier">✏️</button>' +
-        '<button class="btn-icon btn-icon-danger" data-action="delete" data-id="' + p.id + '" title="Supprimer">🗑️</button>' +
-      '</div>';
-    list.appendChild(item);
-  });
+  labelInput.style.borderColor = '';
 
-  list.querySelectorAll('[data-action="edit"]').forEach(function (btn) {
-    btn.addEventListener('click', function () { openPeriodForm(btn.getAttribute('data-id')); });
-  });
-  list.querySelectorAll('[data-action="delete"]').forEach(function (btn) {
-    btn.addEventListener('click', function () { deletePeriod(btn.getAttribute('data-id')); });
-  });
-}
-
-function deletePeriod(id) {
-  if (!confirm('Archiver cette période ? Elle ne sera plus visible mais l\'historique sera conservé.')) return;
-  var periods = Storage.getPeriods();
-  var p = periods.find(function (p) { return p.id === id; });
-  if (p) p.deletedAt = getTodayDateString();
-  Storage.savePeriods(periods);
-  renderPeriodsTab();
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-/* ---- Period form ---- */
-var pfEditingId = null;
-var pfDates = [];
-var pfExceptions = [];
-
-function openPeriodForm(id) {
-  pfEditingId = id || null;
-  pfDates = [];
-  pfExceptions = [];
-
-  var periods = Storage.getPeriods();
-  var p = id ? periods.find(function (x) { return x.id === id; }) : null;
-
-  document.getElementById('period-overlay-title').textContent = p ? 'Modifier la période' : 'Nouvelle période';
-  document.getElementById('pf-id').value = p ? p.id : '';
-  document.getElementById('pf-emoji').value = p ? (p.emoji || '') : '';
-  document.getElementById('pf-name').value = p ? p.name : '';
-  document.getElementById('pf-start-hour').value = p ? p.startHour : '';
-  document.getElementById('pf-start-min').value = p ? pad2(p.startMinute) : '';
-  document.getElementById('pf-end-hour').value = p ? p.endHour : '';
-  document.getElementById('pf-end-min').value = p ? pad2(p.endMinute) : '';
-
-  var rec = p ? (p.recurrence || { type: 'always' }) : { type: 'always' };
-  document.getElementById('pf-recurrence-type').value = rec.type;
-
-  // Days
-  var selectedDays = (rec.type === 'weekdays' || rec.type === 'period') ? (rec.days || []) : [];
-  document.querySelectorAll('#pf-days-row .day-btn').forEach(function (btn) {
-    btn.classList.toggle('day-selected', selectedDays.indexOf(btn.getAttribute('data-day')) !== -1);
-  });
-
-  // Period range
-  document.getElementById('pf-from').value = rec.type === 'period' ? (rec.from || '') : '';
-  document.getElementById('pf-to').value = rec.type === 'period' ? (rec.to || '') : '';
-
-  // Once
-  document.getElementById('pf-once-date').value = rec.type === 'once' ? (rec.date || '') : '';
-
-  // Dates list
-  pfDates = rec.type === 'dates' ? (rec.dates || []).slice() : [];
-  var removePfDate = function (d) {
-    pfDates = pfDates.filter(function (x) { return x !== d; });
-    renderPfDatesList('pf-dates-list', pfDates, removePfDate);
-  };
-  renderPfDatesList('pf-dates-list', pfDates, removePfDate);
-
-  // Since
-  document.getElementById('pf-since').value = rec.type === 'until_done' ? (rec.since || '') : '';
-
-  // Exceptions
-  pfExceptions = p ? (p.exceptions || []).slice() : [];
-  var removePfException = function (d) {
-    pfExceptions = pfExceptions.filter(function (x) { return x !== d; });
-    renderPfDatesList('pf-exceptions-list', pfExceptions, removePfException);
-  };
-  renderPfDatesList('pf-exceptions-list', pfExceptions, removePfException);
-
-  updateRecurrenceFields();
-  showOverlay('period-overlay');
-}
-
-function updateRecurrenceFields() {
-  var type = document.getElementById('pf-recurrence-type').value;
-  document.getElementById('pf-days-group').style.display = (type === 'weekdays' || type === 'period') ? '' : 'none';
-  document.getElementById('pf-period-range-group').style.display = type === 'period' ? '' : 'none';
-  document.getElementById('pf-once-group').style.display = type === 'once' ? '' : 'none';
-  document.getElementById('pf-dates-group').style.display = type === 'dates' ? '' : 'none';
-  document.getElementById('pf-since-group').style.display = type === 'until_done' ? '' : 'none';
-}
-
-function renderPfDatesList(listId, dates, onRemove) {
-  var el = document.getElementById(listId);
-  el.innerHTML = '';
-  dates.forEach(function (d) {
-    var chip = document.createElement('div');
-    chip.className = 'date-chip';
-    chip.innerHTML = '<span>' + d + '</span><button class="date-chip-remove" type="button">×</button>';
-    chip.querySelector('button').addEventListener('click', function () { onRemove(d); });
-    el.appendChild(chip);
-  });
-}
-
-function getPfRecurrence() {
-  var type = document.getElementById('pf-recurrence-type').value;
-  var rec = { type: type };
-  if (type === 'weekdays') {
-    rec.days = getSelectedDays();
-  } else if (type === 'period') {
-    rec.from = document.getElementById('pf-from').value;
-    rec.to = document.getElementById('pf-to').value;
-    rec.days = getSelectedDays();
-  } else if (type === 'once') {
-    rec.date = document.getElementById('pf-once-date').value;
-  } else if (type === 'dates') {
-    rec.dates = pfDates.slice();
-  } else if (type === 'until_done') {
-    rec.since = document.getElementById('pf-since').value;
-  }
-  return rec;
-}
-
-function getSelectedDays() {
-  var days = [];
-  document.querySelectorAll('#pf-days-row .day-btn.day-selected').forEach(function (b) { days.push(b.getAttribute('data-day')); });
-  return days;
-}
-
-function savePeriod() {
-  var name = document.getElementById('pf-name').value.trim();
-  if (!name) { alert('Le nom est requis.'); return; }
-
-  var periods = Storage.getPeriods();
-  var isNew = !pfEditingId;
-  var existing = isNew ? null : periods.find(function (p) { return p.id === pfEditingId; });
-
-  var period = {
-    id: pfEditingId || genId(),
-    createdAt: existing ? (existing.createdAt || getTodayDateString()) : getTodayDateString(),
-    name: name,
-    emoji: document.getElementById('pf-emoji').value.trim() || '📌',
-    startHour: parseInt(document.getElementById('pf-start-hour').value) || 0,
-    startMinute: parseInt(document.getElementById('pf-start-min').value) || 0,
-    endHour: parseInt(document.getElementById('pf-end-hour').value) || 0,
-    endMinute: parseInt(document.getElementById('pf-end-min').value) || 0,
-    recurrence: getPfRecurrence(),
-    exceptions: pfExceptions.slice(),
-    tasks: existing ? existing.tasks : [],
-  };
-
-  if (isNew) {
-    periods.push(period);
+  var id = document.getElementById('tf-id').value;
+  if (id) {
+    Storage.updateTask(id, {
+      label:      data.label,
+      emoji:      data.emoji,
+      image:      data.image,
+      schedules:  data.schedules,
+      recurrence: data.recurrence,
+      end:        data.end,
+      exceptions: data.exceptions,
+    });
   } else {
-    var idx = periods.findIndex(function (p) { return p.id === pfEditingId; });
-    if (idx !== -1) periods[idx] = period;
+    Storage.addTask({
+      id:          generateUUID(),
+      label:       data.label,
+      emoji:       data.emoji,
+      image:       data.image,
+      schedules:   data.schedules,
+      recurrence:  data.recurrence,
+      end:         data.end,
+      exceptions:  data.exceptions,
+      createdAt:   new Date().toISOString(),
+      deletedAt:   null,
+      completedAt: null,
+    });
   }
 
-  Storage.savePeriods(periods);
-  hideOverlay('period-overlay');
-  renderPeriodsTab();
+  closeTaskOverlay();
+  renderTaskList();
+  renderArchivedList();
 }
 
-/* ---- Tasks overlay ---- */
-var tasksEditingPeriodId = null;
+function initTaskOverlay() {
+  document.getElementById('btn-add-task').addEventListener('click', function () { openTaskOverlay(null); });
+  document.getElementById('task-overlay-back').addEventListener('click', closeTaskOverlay);
+  document.getElementById('task-cancel-btn').addEventListener('click', closeTaskOverlay);
+  document.getElementById('task-save-btn').addEventListener('click', saveTask);
+  document.getElementById('task-save-btn-bottom').addEventListener('click', saveTask);
 
-function openTasksOverlay(periodId) {
-  tasksEditingPeriodId = periodId;
-  var periods = Storage.getPeriods();
-  var p = periods.find(function (x) { return x.id === periodId; });
-  document.getElementById('tasks-overlay-title').textContent = (p ? p.name : '') + ' — Tâches';
-  document.getElementById('new-task-label').value = '';
-  document.getElementById('new-task-emoji').value = '';
-  resetImagePreview();
-  setTaskTypeMode('emoji');
-  renderTasksEditList();
-  showOverlay('tasks-overlay');
-}
-
-function renderTasksEditList() {
-  var periods = Storage.getPeriods();
-  var p = periods.find(function (x) { return x.id === tasksEditingPeriodId; });
-  var tasks = p ? (p.tasks || []) : [];
-  var list = document.getElementById('tasks-edit-list');
-  list.innerHTML = '';
-  tasks.forEach(function (t, i) {
-    var item = document.createElement('div');
-    item.className = 'task-edit-item';
-    var icon = (t.image || t.imageData) ? '🖼️' : (t.emoji || '?');
-    item.innerHTML =
-      '<span class="task-edit-icon">' + icon + '</span>' +
-      '<span class="task-edit-label">' + escHtml(t.label) + '</span>' +
-      '<div class="task-edit-actions">' +
-        (i > 0 ? '<button class="task-edit-btn" data-action="up" data-i="' + i + '">↑</button>' : '<span style="width:36px"></span>') +
-        (i < tasks.length - 1 ? '<button class="task-edit-btn" data-action="down" data-i="' + i + '">↓</button>' : '<span style="width:36px"></span>') +
-        '<button class="task-edit-btn" data-action="del" data-i="' + i + '" style="color:rgba(255,100,100,.8)">🗑️</button>' +
-      '</div>';
-    list.appendChild(item);
+  document.getElementById('task-delete-btn').addEventListener('click', function () {
+    var id = document.getElementById('tf-id').value;
+    if (!id || !confirm('Supprimer cette tâche ?')) return;
+    Storage.softDeleteTask(id);
+    closeTaskOverlay();
+    renderTaskList();
+    renderArchivedList();
   });
 
-  list.querySelectorAll('[data-action="up"]').forEach(function (btn) {
-    btn.addEventListener('click', function () { moveTask(parseInt(btn.getAttribute('data-i')), -1); });
+  document.getElementById('btn-add-schedule').addEventListener('click', function () {
+    document.getElementById('schedules-list').appendChild(buildScheduleRow({ type: 'period', value: 'matin' }));
   });
-  list.querySelectorAll('[data-action="down"]').forEach(function (btn) {
-    btn.addEventListener('click', function () { moveTask(parseInt(btn.getAttribute('data-i')), 1); });
+
+  document.getElementById('tf-unit').addEventListener('change', syncRecurrenceVisibility);
+  document.getElementById('tf-until-completion').addEventListener('change', syncRecurrenceVisibility);
+
+  document.getElementById('tf-type-emoji-btn').addEventListener('click', function () {
+    document.getElementById('tf-type-emoji-btn').classList.add('task-type-active');
+    document.getElementById('tf-type-image-btn').classList.remove('task-type-active');
+    document.getElementById('tf-emoji-group').style.display    = '';
+    document.getElementById('tf-image-group').style.display    = 'none';
+    document.getElementById('tf-gallery-picker').style.display = 'none';
+    overlayImageId = null;
   });
-  list.querySelectorAll('[data-action="del"]').forEach(function (btn) {
-    btn.addEventListener('click', function () { deleteTask(parseInt(btn.getAttribute('data-i'))); });
+
+  document.getElementById('tf-type-image-btn').addEventListener('click', function () {
+    document.getElementById('tf-type-image-btn').classList.add('task-type-active');
+    document.getElementById('tf-type-emoji-btn').classList.remove('task-type-active');
+    document.getElementById('tf-emoji-group').style.display = 'none';
+    document.getElementById('tf-image-group').style.display = '';
   });
-}
 
-function moveTask(i, dir) {
-  var periods = Storage.getPeriods();
-  var p = periods.find(function (x) { return x.id === tasksEditingPeriodId; });
-  if (!p) return;
-  var j = i + dir;
-  if (j < 0 || j >= p.tasks.length) return;
-  var tmp = p.tasks[i]; p.tasks[i] = p.tasks[j]; p.tasks[j] = tmp;
-  Storage.savePeriods(periods);
-  renderTasksEditList();
-}
+  document.getElementById('tf-image-btn').addEventListener('click', function () {
+    document.getElementById('tf-image-file').click();
+  });
 
-function deleteTask(i) {
-  var periods = Storage.getPeriods();
-  var p = periods.find(function (x) { return x.id === tasksEditingPeriodId; });
-  if (!p) return;
-  p.tasks.splice(i, 1);
-  Storage.savePeriods(periods);
-  renderTasksEditList();
-}
-
-var taskTypeMode = 'emoji';
-var newTaskImageData = null;
-
-function setTaskTypeMode(mode) {
-  taskTypeMode = mode;
-  if (mode === 'emoji') { newTaskImageData = null; resetImagePreview(); }
-  document.getElementById('task-type-emoji-btn').classList.toggle('task-type-active', mode === 'emoji');
-  document.getElementById('task-type-image-btn').classList.toggle('task-type-active', mode === 'image');
-  document.getElementById('new-task-emoji-group').style.display = mode === 'emoji' ? '' : 'none';
-  document.getElementById('new-task-image-group').style.display = mode === 'image' ? '' : 'none';
-}
-
-function resetImagePreview() {
-  newTaskImageData = null;
-  document.getElementById('new-task-image-preview').style.display = 'none';
-  document.getElementById('new-task-image-preview-img').src = '';
-  document.getElementById('new-task-image-file').value = '';
-}
-
-function compressImage(file, callback) {
-  var reader = new FileReader();
-  reader.onload = function (e) {
-    var img = new Image();
-    img.onload = function () {
-      var maxW = 800;
-      var scale = img.width > maxW ? maxW / img.width : 1;
-      var canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      callback(canvas.toDataURL('image/jpeg', 0.7));
+  document.getElementById('tf-image-file').addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var entry = Storage.addToGallery(file.name, ev.target.result);
+      selectGalleryImage(entry.id, entry.data);
+      renderGallery();
     };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('tf-image-remove').addEventListener('click', function () {
+    overlayImageId = null;
+    document.getElementById('tf-image-preview').style.display  = 'none';
+    document.getElementById('tf-gallery-picker').style.display = 'none';
+    document.getElementById('tf-image-file').value = '';
+  });
+
+  document.getElementById('tf-gallery-btn').addEventListener('click', function () {
+    var picker = document.getElementById('tf-gallery-picker');
+    if (picker.style.display !== 'none') { picker.style.display = 'none'; return; }
+    openGalleryPicker();
+  });
+
+  document.getElementById('btn-add-exception').addEventListener('click', function () {
+    var input = document.getElementById('tf-exception-date');
+    if (input.value) { addExceptionRow(input.value); input.value = ''; }
+  });
 }
 
-function addTask() {
-  var label = document.getElementById('new-task-label').value.trim();
-  if (!label) { alert('Le label est requis.'); return; }
+/* ---- Liste des tâches actives ---- */
 
-  var task = { id: genId(), label: label };
-  if (taskTypeMode === 'emoji') {
-    task.emoji = document.getElementById('new-task-emoji').value.trim() || '•';
+function buildTaskItem(task) {
+  var li = document.createElement('li');
+  li.className = 'task-item';
+
+  var iconEl = document.createElement('span');
+  iconEl.className = 'task-item-icon';
+  if (task.image) {
+    var img = document.createElement('img');
+    img.src = task.image; img.alt = task.label;
+    iconEl.appendChild(img);
   } else {
-    if (!newTaskImageData) { alert('Sélectionnez une image.'); return; }
-    task.imageData = newTaskImageData;
+    iconEl.textContent = task.emoji || '•';
   }
 
-  var periods = Storage.getPeriods();
-  var p = periods.find(function (x) { return x.id === tasksEditingPeriodId; });
-  if (!p) return;
-  p.tasks.push(task);
-  console.log('[addTask] tâche à sauvegarder :', JSON.stringify(task).slice(0, 200));
-  Storage.savePeriods(periods);
+  var infoEl  = document.createElement('div');
+  infoEl.className = 'task-item-info';
+  var labelEl = document.createElement('span');
+  labelEl.className = 'task-item-label'; labelEl.textContent = task.label;
+  var metaEl  = document.createElement('span');
+  metaEl.className  = 'task-item-meta';  metaEl.textContent  = recurrenceSummary(task);
+  infoEl.appendChild(labelEl);
+  infoEl.appendChild(metaEl);
 
-  document.getElementById('new-task-label').value = '';
-  document.getElementById('new-task-emoji').value = '';
-  resetImagePreview();
-  renderTasksEditList();
+  var actionsEl = document.createElement('div');
+  actionsEl.className = 'task-item-actions';
+
+  var editBtn = document.createElement('button');
+  editBtn.className = 'btn-icon';
+  editBtn.setAttribute('aria-label', 'Modifier');
+  editBtn.textContent = '✏️';
+  (function (t) { editBtn.addEventListener('click', function () { openTaskOverlay(t); }); })(task);
+
+  var deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-icon btn-icon-danger';
+  deleteBtn.setAttribute('aria-label', 'Supprimer');
+  deleteBtn.textContent = '🗑';
+  (function (t) {
+    deleteBtn.addEventListener('click', function () {
+      Storage.softDeleteTask(t.id);
+      renderTaskList();
+      renderArchivedList();
+    });
+  })(task);
+
+  actionsEl.appendChild(editBtn);
+  actionsEl.appendChild(deleteBtn);
+  li.appendChild(iconEl);
+  li.appendChild(infoEl);
+  li.appendChild(actionsEl);
+  return li;
 }
 
-/* ---- Overlay helpers ---- */
-function showOverlay(id) { document.getElementById(id).style.display = 'flex'; }
-function hideOverlay(id) { document.getElementById(id).style.display = 'none'; }
-
-/* ---- Parent calendar ---- */
-var pcalState = { year: 0, month: 0 };
-
-function renderParentCalendar() {
-  if (!pcalState.year) {
-    var now = new Date();
-    pcalState.year = now.getFullYear();
-    pcalState.month = now.getMonth();
+function renderTaskList() {
+  var ul    = document.getElementById('task-list');
+  var tasks = Storage.getActiveTasks();
+  ul.innerHTML = '';
+  if (!tasks.length) {
+    var empty = document.createElement('li');
+    empty.className = 'task-item-empty'; empty.textContent = 'Aucune tâche active.';
+    ul.appendChild(empty);
+    return;
   }
-  var year = pcalState.year;
-  var month = pcalState.month;
-  var today = getTodayDateString();
-  var now = new Date();
+  tasks.forEach(function (t) { ul.appendChild(buildTaskItem(t)); });
+}
 
-  document.getElementById('pcal-month-title').textContent = MONTHS_FR[month] + ' ' + year;
-  document.getElementById('pcal-next-btn').disabled = (year === now.getFullYear() && month === now.getMonth());
+/* ---- Section archivées ---- */
 
-  var grid = document.getElementById('pcalendar-grid');
+function buildArchivedItem(task) {
+  var li = document.createElement('li');
+  li.className = 'task-item task-item-archived';
+
+  var iconEl = document.createElement('span');
+  iconEl.className = 'task-item-icon'; iconEl.textContent = task.emoji || '•';
+
+  var infoEl  = document.createElement('div');
+  infoEl.className = 'task-item-info';
+  var labelEl = document.createElement('span');
+  labelEl.className = 'task-item-label'; labelEl.textContent = task.label;
+  var dateEl  = document.createElement('span');
+  dateEl.className  = 'task-item-meta';
+  dateEl.textContent = 'Archivée le ' + ((task.deletedAt || '').slice(0, 10) || '—');
+  infoEl.appendChild(labelEl);
+  infoEl.appendChild(dateEl);
+
+  var actionsEl = document.createElement('div');
+  actionsEl.className = 'task-item-actions';
+
+  var restoreBtn = document.createElement('button');
+  restoreBtn.className = 'btn-icon';
+  restoreBtn.setAttribute('aria-label', 'Restaurer');
+  restoreBtn.textContent = '↩️';
+  (function (t) {
+    restoreBtn.addEventListener('click', function () {
+      Storage.restoreTask(t.id);
+      renderTaskList();
+      renderArchivedList();
+    });
+  })(task);
+
+  var deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-icon btn-icon-danger';
+  deleteBtn.setAttribute('aria-label', 'Supprimer définitivement');
+  deleteBtn.textContent = '🗑';
+  (function (t) {
+    deleteBtn.addEventListener('click', function () {
+      if (!confirm('Supprimer définitivement "' + t.label + '" ?')) return;
+      Storage.hardDeleteTask(t.id);
+      renderArchivedList();
+    });
+  })(task);
+
+  actionsEl.appendChild(restoreBtn);
+  actionsEl.appendChild(deleteBtn);
+  li.appendChild(iconEl);
+  li.appendChild(infoEl);
+  li.appendChild(actionsEl);
+  return li;
+}
+
+function renderArchivedList() {
+  var ul    = document.getElementById('archived-list');
+  var tasks = Storage.getArchivedTasks();
+  ul.innerHTML = '';
+  if (!tasks.length) {
+    var empty = document.createElement('li');
+    empty.className = 'task-item-empty'; empty.textContent = 'Aucune tâche archivée.';
+    ul.appendChild(empty);
+    return;
+  }
+  tasks.forEach(function (t) { ul.appendChild(buildArchivedItem(t)); });
+}
+
+/* ---- Galerie ---- */
+
+function selectGalleryImage(id, data) {
+  overlayImageId = id;
+  document.getElementById('tf-image-preview-img').src      = data;
+  document.getElementById('tf-image-preview').style.display  = '';
+  document.getElementById('tf-gallery-picker').style.display = 'none';
+}
+
+function openGalleryPicker() {
+  var gallery  = Storage.getGallery();
+  var grid     = document.getElementById('tf-gallery-picker-grid');
+  var emptyEl  = document.getElementById('tf-gallery-picker-empty');
+  var picker   = document.getElementById('tf-gallery-picker');
   grid.innerHTML = '';
 
-  ['L','M','M','J','V','S','D'].forEach(function (h) {
-    var cell = document.createElement('div');
-    cell.className = 'cal-header-cell';
-    cell.textContent = h;
-    grid.appendChild(cell);
-  });
-
-  var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
-  for (var i = 0; i < firstDow; i++) {
-    var pad = document.createElement('div');
-    pad.className = 'cal-cell cal-cell-empty';
-    grid.appendChild(pad);
+  if (!gallery.length) {
+    emptyEl.style.display = '';
+    picker.style.display  = '';
+    return;
   }
+  emptyEl.style.display = 'none';
 
-  var daysInMonth = new Date(year, month + 1, 0).getDate();
-  var periods = Storage.getPeriods();
-
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dateStr = year + '-' + pad2(month + 1) + '-' + pad2(d);
-    var isFuture = dateStr > today;
-    var isToday = dateStr === today;
-
-    var cell = document.createElement('div');
-    cell.className = 'cal-cell' + (isToday ? ' cal-cell-today' : '') + (isFuture ? ' cal-cell-future' : '');
-
-    var numEl = document.createElement('span');
-    numEl.className = 'cal-day-num';
-    numEl.textContent = d;
-    cell.appendChild(numEl);
-
-    if (!isFuture) {
-      var smiley = getPCalSmiley(periods, dateStr);
-      if (smiley) {
-        var img = document.createElement('img');
-        img.className = 'cal-smiley';
-        img.src = SITE_BASE + '/assets/img/calendar/' + smiley.image + '.png';
-        img.alt = smiley.label;
-        cell.appendChild(img);
-      }
-      cell.addEventListener('click', function (ds) {
-        return function () { openDayOverlay(ds); };
-      }(dateStr));
-    }
-
-    grid.appendChild(cell);
-  }
-}
-
-function getPCalSmiley(periods, dateStr) {
-  var active = getActivePeriodsForDay(periods, dateStr);
-  var checkable = [];
-  active.forEach(function (p) {
-    p.tasks.forEach(function (t) { if (!t.image && !t.imageData) checkable.push(t); });
-  });
-  if (!checkable.length) return null;
-  var ch = Storage.getCheckins(dateStr);
-  var done = checkable.filter(function (t) { return ch[t.id] && ch[t.id].done; }).length;
-  return getSmiley(checkable.length, done);
-}
-
-/* ---- Day overlay ---- */
-var dayOverlayDate = null;
-
-function openDayOverlay(dateStr) {
-  dayOverlayDate = dateStr;
-  var d = new Date(dateStr + 'T12:00:00');
-  var label = DAYS_FR[d.getDay()].charAt(0).toUpperCase() + DAYS_FR[d.getDay()].slice(1) + ' ' + d.getDate() + ' ' + MONTHS_FR[d.getMonth()];
-  document.getElementById('day-overlay-title').textContent = label;
-  renderDayOverlay();
-  showOverlay('day-overlay');
-}
-
-function renderDayOverlay() {
-  var periods = Storage.getPeriods();
-  var active = getActivePeriodsForDay(periods, dayOverlayDate);
-  var list = document.getElementById('day-tasks-list');
-  list.innerHTML = '';
-
-  var checkable = [];
-  active.forEach(function (p) {
-    p.tasks.forEach(function (t) { if (!t.image && !t.imageData) checkable.push(t); });
-  });
-
-  var emptyEl = document.getElementById('day-empty');
-  emptyEl.style.display = checkable.length ? 'none' : '';
-
-  var ch = Storage.getCheckins(dayOverlayDate);
-
-  checkable.forEach(function (t) {
-    var done = !!(ch[t.id] && ch[t.id].done);
+  gallery.forEach(function (entry) {
     var item = document.createElement('div');
-    item.className = 'day-task-item' + (done ? ' day-task-done' : '');
-    item.innerHTML =
-      '<span class="day-task-emoji">' + (t.emoji || '•') + '</span>' +
-      '<span class="day-task-label">' + escHtml(t.label) + '</span>' +
-      '<div class="day-task-check">' + (done ? '✓' : '') + '</div>';
-    item.addEventListener('click', function () {
-      Storage.toggleTask(dayOverlayDate, t.id);
-      renderDayOverlay();
+    item.className = 'gallery-picker-item' + (overlayImageId === entry.id ? ' gallery-item-selected' : '');
+
+    var img = document.createElement('img');
+    img.src = entry.data; img.alt = entry.name;
+    item.appendChild(img);
+
+    (function (e) {
+      item.addEventListener('click', function () { selectGalleryImage(e.id, e.data); });
+    })(entry);
+
+    grid.appendChild(item);
+  });
+  picker.style.display = '';
+}
+
+function renderGallery() {
+  var gallery  = Storage.getGallery();
+  var grid     = document.getElementById('gallery-grid');
+  var emptyEl  = document.getElementById('gallery-empty-msg');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  if (!gallery.length) { emptyEl.style.display = ''; return; }
+  emptyEl.style.display = 'none';
+
+  gallery.forEach(function (entry) {
+    var item = document.createElement('div');
+    item.className = 'gallery-mgmt-item';
+
+    var img = document.createElement('img');
+    img.src = entry.data; img.alt = entry.name;
+    item.appendChild(img);
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'gallery-item-delete';
+    delBtn.setAttribute('aria-label', 'Supprimer');
+    delBtn.textContent = '✕';
+    (function (id) {
+      delBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (!confirm('Supprimer cette image de la galerie ?')) return;
+        Storage.removeFromGallery(id);
+        renderGallery();
+        renderTaskList();
+      });
+    })(entry.id);
+
+    item.appendChild(delBtn);
+    grid.appendChild(item);
+  });
+}
+
+function initGallery() {
+  document.getElementById('btn-gallery-import').addEventListener('click', function () {
+    document.getElementById('gallery-import-file').click();
+  });
+  document.getElementById('gallery-import-file').addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      Storage.addToGallery(file.name, ev.target.result);
+      renderGallery();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+}
+
+/* ---- Calendrier parent ---- */
+
+var parentCalState = { year: 0, month: 0, ready: false };
+
+function initParentCalendarTab() {
+  var container = document.getElementById('parent-calendar');
+  if (!container) return;
+
+  if (!parentCalState.ready) {
+    parentCalState.ready = true;
+    var now = new Date();
+    parentCalState.year  = now.getFullYear();
+    parentCalState.month = now.getMonth();
+
+    var topbar = document.createElement('div');
+    topbar.className = 'pcal-topbar';
+    var nav = document.createElement('div');
+    nav.className = 'cal-nav';
+
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'cal-nav-btn';
+    prevBtn.setAttribute('aria-label', 'Mois précédent');
+    prevBtn.textContent = '‹';
+
+    var titleEl = document.createElement('span');
+    titleEl.className = 'cal-month-title';
+
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'cal-nav-btn';
+    nextBtn.setAttribute('aria-label', 'Mois suivant');
+    nextBtn.textContent = '›';
+
+    nav.appendChild(prevBtn);
+    nav.appendChild(titleEl);
+    nav.appendChild(nextBtn);
+    topbar.appendChild(nav);
+    container.appendChild(topbar);
+
+    var gridEl = document.createElement('div');
+    gridEl.className = 'calendar-grid';
+    container.appendChild(gridEl);
+
+    container._calTitle = titleEl;
+    container._calNext  = nextBtn;
+    container._calGrid  = gridEl;
+
+    prevBtn.addEventListener('click', function () {
+      parentCalState.month--;
+      if (parentCalState.month < 0) { parentCalState.month = 11; parentCalState.year--; }
       renderParentCalendar();
     });
+    nextBtn.addEventListener('click', function () {
+      var n = new Date();
+      if (parentCalState.year === n.getFullYear() && parentCalState.month === n.getMonth()) return;
+      parentCalState.month++;
+      if (parentCalState.month > 11) { parentCalState.month = 0; parentCalState.year++; }
+      renderParentCalendar();
+    });
+  }
+
+  renderParentCalendar();
+}
+
+function renderParentCalendar() {
+  var c = document.getElementById('parent-calendar');
+  if (!c || !c._calGrid) return;
+  renderCalendarGrid(c._calGrid, c._calTitle, c._calNext, parentCalState, openDayOverlay);
+}
+
+/* ---- Overlay jour (validation rétroactive) ---- */
+
+var DAY_NAMES_LONG   = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+var MONTH_NAMES_LONG = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                        'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+
+function openDayOverlay(dateStr) {
+  var d = new Date(dateStr + 'T12:00:00');
+  document.getElementById('day-overlay-title').textContent =
+    DAY_NAMES_LONG[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES_LONG[d.getMonth()];
+  document.getElementById('day-overlay').dataset.dateStr = dateStr;
+  renderDayTasks(dateStr);
+  document.getElementById('day-overlay').style.display = 'flex';
+}
+
+function closeDayOverlay() {
+  document.getElementById('day-overlay').style.display = 'none';
+  renderParentCalendar();
+}
+
+function renderDayTasks(dateStr) {
+  var list    = document.getElementById('day-tasks-list');
+  var emptyEl = document.getElementById('day-empty');
+  list.innerHTML = '';
+
+  var tasks     = Storage.getTasks();
+  var instances = [];
+  tasks.forEach(function (task) {
+    instances = instances.concat(getTaskInstancesForDay(task, dateStr));
+  });
+  instances.sort(function (a, b) { return a.startMinutes - b.startMinutes; });
+
+  if (!instances.length) { emptyEl.style.display = ''; return; }
+  emptyEl.style.display = 'none';
+
+  var completions = Storage.getCompletions(dateStr);
+
+  instances.forEach(function (inst) {
+    var key    = inst.taskId + ':' + inst.scheduleIndex;
+    var isDone = !!completions[key];
+
+    var item = document.createElement('div');
+    item.className = 'day-task-item' + (isDone ? ' day-task-done' : '');
+
+    var iconEl = document.createElement('span');
+    iconEl.className = 'day-task-emoji';
+    if (inst.image) {
+      var img = document.createElement('img');
+      img.src = inst.image; img.alt = inst.label;
+      img.style.cssText = 'width:32px;height:32px;object-fit:cover;border-radius:6px;';
+      iconEl.appendChild(img);
+    } else {
+      iconEl.textContent = inst.emoji || '•';
+    }
+
+    var labelEl = document.createElement('span');
+    labelEl.className = 'day-task-label'; labelEl.textContent = inst.label;
+
+    var checkEl = document.createElement('span');
+    checkEl.className = 'day-task-check';
+    if (isDone) checkEl.textContent = '✓';
+
+    item.appendChild(iconEl);
+    item.appendChild(labelEl);
+    item.appendChild(checkEl);
+
+    (function (k) {
+      item.addEventListener('click', function () {
+        var obj = Storage.getCompletions(dateStr);
+        if (obj[k]) { delete obj[k]; } else { obj[k] = true; }
+        Storage.saveCompletions(dateStr, obj);
+        renderDayTasks(dateStr);
+      });
+    })(key);
+
     list.appendChild(item);
   });
 }
 
-/* ---- Settings / PIN change ---- */
-var settingsPinState = { step: 'old', oldPin: [], newPin: [], confirmPin: [] };
+/* ---- Paramètres ---- */
 
-function initSettingsTab() {
-  settingsPinState = { step: 'old', oldPin: [], newPin: [], confirmPin: [] };
-  document.getElementById('settings-pin-error').textContent = '';
-  document.getElementById('settings-pin-success').textContent = '';
-  document.getElementById('new-pin-group').style.display = 'none';
-  document.getElementById('new-pin-label').textContent = 'Nouveau code';
-  updateSettingsDots();
-  buildMiniKeypad('old-pin-keypad', 'old');
-  buildMiniKeypad('new-pin-keypad', 'new');
-  document.getElementById('input-prenom').value = localStorage.getItem('koko-prenom') || '';
-  document.getElementById('prenom-success').textContent = '';
-}
+var settingsInitialized = false;
 
-function buildMiniKeypad(containerId, target) {
+function initMiniKeypad(containerId, dotsId, onComplete) {
   var container = document.getElementById(containerId);
-  container.innerHTML = '';
-  var digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
-  digits.forEach(function (d) {
-    if (d === '') { var spacer = document.createElement('div'); container.appendChild(spacer); return; }
+  if (!container) return null;
+  var state = { buffer: '' };
+
+  function syncDots() {
+    document.querySelectorAll('#' + dotsId + ' .pin-dot').forEach(function (d, i) {
+      d.classList.toggle('pin-dot-filled', i < state.buffer.length);
+    });
+  }
+
+  function addKey(label, handler) {
     var btn = document.createElement('button');
-    btn.className = 'pin-mini-key';
-    btn.textContent = d;
-    btn.type = 'button';
-    btn.addEventListener('click', function () { handleSettingsDigit(target, d); });
+    btn.type = 'button'; btn.className = 'pin-mini-key';
+    btn.textContent = label;
+    btn.addEventListener('click', handler);
     container.appendChild(btn);
-  });
-}
-
-function handleSettingsDigit(target, d) {
-  var step = settingsPinState.step;
-  var currentArr = step === 'old' ? settingsPinState.oldPin : (step === 'new' ? settingsPinState.newPin : settingsPinState.confirmPin);
-
-  if (d === '⌫') {
-    if (currentArr.length) { currentArr.pop(); updateSettingsDots(); }
-    return;
   }
-  if (currentArr.length >= 4) return;
-  currentArr.push(d);
-  updateSettingsDots();
 
-  if (currentArr.length === 4) {
-    if (step === 'old') validateOldPin();
-    else if (step === 'new') { settingsPinState.step = 'confirm'; document.getElementById('new-pin-label').textContent = 'Confirmer le code'; updateSettingsDots(); }
-    else validateNewPinConfirm();
-  }
-}
-
-function updateSettingsDots() {
-  var step = settingsPinState.step;
-  var arr = step === 'old' ? settingsPinState.oldPin : (step === 'new' ? settingsPinState.newPin : settingsPinState.confirmPin);
-  var dotsId = step === 'old' ? 'old-pin-dots' : 'new-pin-dots';
-
-  // Show/hide new pin group
-  document.getElementById('new-pin-group').style.display = (step === 'old') ? 'none' : '';
-
-  document.querySelectorAll('#' + dotsId + ' .pin-dot').forEach(function (dot, i) {
-    dot.classList.toggle('pin-dot-filled', i < arr.length);
-  });
-}
-
-async function validateOldPin() {
-  var stored = localStorage.getItem(PIN_KEY);
-  var hash = await sha256(settingsPinState.oldPin.join(''));
-  if (hash !== stored) {
-    document.getElementById('settings-pin-error').textContent = 'Code incorrect';
-    settingsPinState.oldPin = [];
-    updateSettingsDots();
-    return;
-  }
-  document.getElementById('settings-pin-error').textContent = '';
-  settingsPinState.step = 'new';
-  settingsPinState.newPin = [];
-  document.getElementById('new-pin-group').style.display = '';
-  document.getElementById('new-pin-label').textContent = 'Nouveau code';
-  updateSettingsDots();
-}
-
-async function validateNewPinConfirm() {
-  var np = settingsPinState.newPin.join('');
-  var cp = settingsPinState.confirmPin.join('');
-  if (np !== cp) {
-    document.getElementById('settings-pin-error').textContent = 'Les codes ne correspondent pas';
-    settingsPinState.step = 'new';
-    settingsPinState.newPin = [];
-    settingsPinState.confirmPin = [];
-    document.getElementById('new-pin-label').textContent = 'Nouveau code';
-    updateSettingsDots();
-    return;
-  }
-  localStorage.setItem(PIN_KEY, await sha256(np));
-  document.getElementById('settings-pin-error').textContent = '';
-  document.getElementById('settings-pin-success').textContent = 'Code mis à jour ✓';
-  settingsPinState = { step: 'old', oldPin: [], newPin: [], confirmPin: [] };
-  document.getElementById('new-pin-group').style.display = 'none';
-  updateSettingsDots();
-  setTimeout(function () { document.getElementById('settings-pin-success').textContent = ''; }, 3000);
-}
-
-/* ---- Image gallery ---- */
-function openGallery() {
-  var periods = Storage.getPeriods();
-  var seen = [];
-  var images = [];
-  periods.forEach(function (p) {
-    (p.tasks || []).forEach(function (t) {
-      if (t.imageData && seen.indexOf(t.imageData) === -1) {
-        seen.push(t.imageData);
-        images.push({ imageData: t.imageData, label: t.label });
+  [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (d) {
+    addKey(String(d), function () {
+      if (state.buffer.length >= 4) return;
+      state.buffer += String(d); syncDots();
+      if (state.buffer.length === 4) {
+        var pin = state.buffer; state.buffer = ''; syncDots(); onComplete(pin);
       }
     });
   });
-
-  var emptyEl = document.getElementById('gallery-empty');
-  var grid = document.getElementById('gallery-grid');
-  grid.innerHTML = '';
-
-  if (!images.length) {
-    emptyEl.style.display = '';
-    showOverlay('gallery-overlay');
-    return;
-  }
-
-  emptyEl.style.display = 'none';
-  images.forEach(function (item) {
-    var thumb = document.createElement('div');
-    thumb.className = 'gallery-thumb';
-    var img = document.createElement('img');
-    img.alt = item.label;
-    img.src = item.imageData;
-    thumb.appendChild(img);
-    thumb.addEventListener('click', function () {
-      newTaskImageData = item.imageData;
-      document.getElementById('new-task-image-preview-img').src = item.imageData;
-      document.getElementById('new-task-image-preview').style.display = '';
-      hideOverlay('gallery-overlay');
-    });
-    grid.appendChild(thumb);
+  container.appendChild(document.createElement('div'));
+  addKey('0', function () {
+    if (state.buffer.length >= 4) return;
+    state.buffer += '0'; syncDots();
+    if (state.buffer.length === 4) {
+      var pin = state.buffer; state.buffer = ''; syncDots(); onComplete(pin);
+    }
+  });
+  addKey('⌫', function () {
+    if (!state.buffer.length) return;
+    state.buffer = state.buffer.slice(0, -1); syncDots();
   });
 
-  showOverlay('gallery-overlay');
+  return { reset: function () { state.buffer = ''; syncDots(); } };
 }
 
-/* ---- Export / Import ---- */
-function exportData() {
-  var data = {};
-  for (var i = 0; i < localStorage.length; i++) {
-    var key = localStorage.key(i);
-    if (key && key.startsWith('koko-')) data[key] = localStorage.getItem(key);
+function onSettingsTabActivated() {
+  if (!settingsInitialized) {
+    settingsInitialized = true;
+
+    oldPinKp = initMiniKeypad('old-pin-keypad', 'old-pin-dots', function (pin) {
+      hashPin(pin, function (hash) {
+        if (hash !== Storage.getPin()) {
+          document.getElementById('settings-pin-error').textContent = 'Code incorrect.';
+          return;
+        }
+        document.getElementById('settings-pin-error').textContent = '';
+        document.getElementById('new-pin-group').style.display    = '';
+      });
+    });
+
+    newPinKp = initMiniKeypad('new-pin-keypad', 'new-pin-dots', function (pin) {
+      hashPin(pin, function (hash) {
+        Storage.savePin(hash);
+        document.getElementById('new-pin-group').style.display      = 'none';
+        document.getElementById('settings-pin-success').textContent = 'Code modifié !';
+        if (oldPinKp) oldPinKp.reset();
+        setTimeout(function () {
+          document.getElementById('settings-pin-success').textContent = '';
+        }, 2000);
+      });
+    });
+
+    var prenomInput = document.getElementById('input-prenom');
+    prenomInput.value = localStorage.getItem('koko-prenom') || '';
+    document.getElementById('btn-save-prenom').addEventListener('click', function () {
+      var val = prenomInput.value.trim();
+      if (val) localStorage.setItem('koko-prenom', val);
+      else     localStorage.removeItem('koko-prenom');
+      document.getElementById('prenom-success').textContent = 'Enregistré !';
+      setTimeout(function () { document.getElementById('prenom-success').textContent = ''; }, 2000);
+    });
+
+    document.getElementById('btn-export').addEventListener('click', function () {
+      var data = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.startsWith('koko')) data[key] = localStorage.getItem(key);
+      }
+      var json = JSON.stringify(data, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href = url; a.download = 'koko-backup-' + getTodayDateString() + '.json';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btn-import').addEventListener('click', function () {
+      document.getElementById('import-file-input').click();
+    });
+    document.getElementById('import-file-input').addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) { applyImport(ev.target.result); };
+      reader.readAsText(file);
+    });
+    document.getElementById('btn-import-paste').addEventListener('click', function () {
+      applyImport(document.getElementById('import-paste-area').value);
+    });
   }
-  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'koko-backup-' + getTodayDateString() + '.json';
-  a.click();
-  URL.revokeObjectURL(url);
+
+  document.getElementById('new-pin-group').style.display      = 'none';
+  document.getElementById('settings-pin-error').textContent   = '';
+  document.getElementById('settings-pin-success').textContent = '';
+  if (oldPinKp) oldPinKp.reset();
+  if (newPinKp) newPinKp.reset();
 }
 
-function applyImport(jsonStr) {
+function applyImport(json) {
   var errEl = document.getElementById('import-error');
-
-  console.log('[koko import] contenu brut reçu :', jsonStr.slice(0, 500));
-
-  if (!jsonStr || !jsonStr.trim()) {
-    errEl.textContent = 'Fichier vide.';
-    return;
-  }
-
-  var data;
-  try {
-    data = JSON.parse(jsonStr);
-  } catch (e) {
-    console.log('[koko import] JSON.parse error :', e.message);
-    errEl.textContent = 'JSON invalide : ' + e.message;
-    return;
-  }
-
-  var kokoKeys = Object.keys(data).filter(function (k) { return k.startsWith('koko-'); });
-  console.log('[koko import] clés koko- trouvées :', kokoKeys);
-
-  if (!kokoKeys.length) {
-    errEl.textContent = 'Aucune clé koko- trouvée dans ce fichier. Est-ce bien un export Koko ?';
-    return;
-  }
-
-  if (!confirm('Cette action remplacera toutes les données actuelles. Continuer ?')) return;
-
-  var toRemove = [];
-  for (var i = 0; i < localStorage.length; i++) {
-    var k = localStorage.key(i);
-    if (k && k.startsWith('koko-')) toRemove.push(k);
-  }
-  toRemove.forEach(function (k) { localStorage.removeItem(k); });
-  kokoKeys.forEach(function (k) { localStorage.setItem(k, data[k]); });
-  location.reload();
-}
-
-function importData(file) {
-  var reader = new FileReader();
-  reader.onload = function (e) { applyImport(e.target.result); };
-  reader.readAsText(file);
+  var obj;
+  try { obj = JSON.parse(json); } catch (e) { errEl.textContent = 'JSON invalide.'; return; }
+  errEl.textContent = '';
+  Object.keys(obj).forEach(function (key) {
+    if (key.startsWith('koko')) localStorage.setItem(key, obj[key]);
+  });
+  renderTaskList();
+  renderArchivedList();
+  document.getElementById('import-paste-area').value = '';
+  alert('Données importées.');
 }
 
 /* ---- Init ---- */
+
 document.addEventListener('DOMContentLoaded', function () {
-  // PIN gate
-  var stored = localStorage.getItem(PIN_KEY);
-  if (!stored) enterCreateMode(); else enterUnlockMode();
-
-  document.querySelectorAll('.pin-key[data-digit]').forEach(function (btn) {
-    btn.addEventListener('click', function () { addDigit(btn.getAttribute('data-digit')); });
-  });
-  document.getElementById('pin-back').addEventListener('click', removeDigit);
-  document.getElementById('btn-lock').addEventListener('click', lock);
-
-  document.addEventListener('keydown', function (e) {
-    if (document.getElementById('parent-content').style.display !== 'none') return;
-    if (e.key >= '0' && e.key <= '9') addDigit(e.key);
-    else if (e.key === 'Backspace') removeDigit();
-  });
-
-  // Tabs
-  document.querySelectorAll('.tab-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () { switchTab(btn.getAttribute('data-tab')); });
-  });
-
-  // Period overlay
-  document.getElementById('btn-add-period').addEventListener('click', function () { openPeriodForm(null); });
-  document.getElementById('period-overlay-back').addEventListener('click', function () { hideOverlay('period-overlay'); });
-  document.getElementById('period-save-btn').addEventListener('click', savePeriod);
-  document.getElementById('pf-recurrence-type').addEventListener('change', updateRecurrenceFields);
-
-  document.querySelectorAll('#pf-days-row .day-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () { btn.classList.toggle('day-selected'); });
-  });
-
-  document.getElementById('pf-add-date-btn').addEventListener('click', function () {
-    var val = document.getElementById('pf-add-date-input').value;
-    if (val && pfDates.indexOf(val) === -1) {
-      pfDates.push(val); pfDates.sort();
-      var cb = function (d) { pfDates = pfDates.filter(function (x) { return x !== d; }); renderPfDatesList('pf-dates-list', pfDates, cb); };
-      renderPfDatesList('pf-dates-list', pfDates, cb);
-      document.getElementById('pf-add-date-input').value = '';
-    }
-  });
-
-  document.getElementById('pf-add-exception-btn').addEventListener('click', function () {
-    var val = document.getElementById('pf-add-exception-input').value;
-    if (val && pfExceptions.indexOf(val) === -1) {
-      pfExceptions.push(val); pfExceptions.sort();
-      var cb = function (d) { pfExceptions = pfExceptions.filter(function (x) { return x !== d; }); renderPfDatesList('pf-exceptions-list', pfExceptions, cb); };
-      renderPfDatesList('pf-exceptions-list', pfExceptions, cb);
-      document.getElementById('pf-add-exception-input').value = '';
-    }
-  });
-
-  document.getElementById('btn-manage-tasks').addEventListener('click', function () {
-    var id = pfEditingId || document.getElementById('pf-id').value;
-    if (!id) { alert('Enregistrez d\'abord la période avant de gérer ses tâches.'); return; }
-    openTasksOverlay(id);
-  });
-
-  // Tasks overlay
-  document.getElementById('tasks-overlay-back').addEventListener('click', function () {
-    hideOverlay('tasks-overlay');
-    renderPeriodsTab();
-  });
-  document.getElementById('task-type-emoji-btn').addEventListener('click', function () { setTaskTypeMode('emoji'); });
-  document.getElementById('task-type-image-btn').addEventListener('click', function () { setTaskTypeMode('image'); });
-  document.getElementById('btn-add-task').addEventListener('click', addTask);
-
-  document.getElementById('new-task-image-btn').addEventListener('click', function () {
-    document.getElementById('new-task-image-file').click();
-  });
-  document.getElementById('new-task-image-file').addEventListener('change', function (e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file) return;
-    compressImage(file, function (dataUrl) {
-      newTaskImageData = dataUrl;
-      document.getElementById('new-task-image-preview-img').src = dataUrl;
-      document.getElementById('new-task-image-preview').style.display = '';
-    });
-  });
-  document.getElementById('new-task-gallery-btn').addEventListener('click', openGallery);
-  document.getElementById('gallery-overlay-back').addEventListener('click', function () { hideOverlay('gallery-overlay'); });
-
-  // Prenom
-  document.getElementById('btn-save-prenom').addEventListener('click', function () {
-    var val = document.getElementById('input-prenom').value.trim();
-    if (val) localStorage.setItem('koko-prenom', val);
-    else localStorage.removeItem('koko-prenom');
-    document.getElementById('prenom-success').textContent = 'Enregistré ✓';
-    setTimeout(function () { document.getElementById('prenom-success').textContent = ''; }, 2000);
-  });
-
-  // Export / Import
-  document.getElementById('btn-export').addEventListener('click', exportData);
-  document.getElementById('btn-import').addEventListener('click', function () {
-    document.getElementById('import-error').textContent = '';
-    document.getElementById('import-file-input').value = '';
-    document.getElementById('import-file-input').click();
-  });
-  document.getElementById('import-file-input').addEventListener('change', function (e) {
-    var file = e.target.files && e.target.files[0];
-    if (file) { document.getElementById('import-error').textContent = ''; importData(file); }
-  });
-  document.getElementById('btn-import-paste').addEventListener('click', function () {
-    var text = document.getElementById('import-paste-area').value.trim();
-    if (!text) { document.getElementById('import-error').textContent = 'Le champ est vide.'; return; }
-    document.getElementById('import-error').textContent = '';
-    applyImport(text);
-  });
-
-  // Calendar
-  document.getElementById('pcal-prev-btn').addEventListener('click', function () {
-    pcalState.month--;
-    if (pcalState.month < 0) { pcalState.month = 11; pcalState.year--; }
-    renderParentCalendar();
-  });
-  document.getElementById('pcal-next-btn').addEventListener('click', function () {
-    pcalState.month++;
-    if (pcalState.month > 11) { pcalState.month = 0; pcalState.year++; }
-    renderParentCalendar();
-  });
-
-  // Day overlay
-  document.getElementById('day-overlay-back').addEventListener('click', function () {
-    hideOverlay('day-overlay');
-    renderParentCalendar();
-  });
+  initPinGate();
+  initTabs();
+  initTaskOverlay();
+  initGallery();
+  document.getElementById('day-overlay-back').addEventListener('click', closeDayOverlay);
 });

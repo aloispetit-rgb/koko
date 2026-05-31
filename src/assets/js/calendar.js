@@ -1,128 +1,140 @@
-var calendarState = { year: 0, month: 0 };
-
 var CAL_MONTH_NAMES = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ];
 
-function openCalendar() {
-  var now = new Date();
-  calendarState.year = now.getFullYear();
-  calendarState.month = now.getMonth();
-  renderCalendar();
-  document.getElementById('calendar-overlay').style.display = 'flex';
-}
+/* ---- Smiley du jour (nouveau modèle) ---- */
 
-function closeCalendar() {
-  document.getElementById('calendar-overlay').style.display = 'none';
-}
-
-function calendarPrevMonth() {
-  calendarState.month--;
-  if (calendarState.month < 0) {
-    calendarState.month = 11;
-    calendarState.year--;
-  }
-  renderCalendar();
-}
-
-function calendarNextMonth() {
-  calendarState.month++;
-  if (calendarState.month > 11) {
-    calendarState.month = 0;
-    calendarState.year++;
-  }
-  renderCalendar();
-}
-
-function getDaySmiley(periods, dateStr) {
-  var activePeriods = getActivePeriodsForDay(periods, dateStr);
-  var checkable = [];
-  activePeriods.forEach(function (p) {
-    p.tasks.forEach(function (t) {
-      if (!t.image && !t.imageData) checkable.push(t);
-    });
+function getDaySmiley(dateStr) {
+  var tasks     = Storage.getTasks();
+  var instances = [];
+  tasks.forEach(function (task) {
+    instances = instances.concat(getTaskInstancesForDay(task, dateStr));
   });
-  if (!checkable.length) return null;
-  var checkins = Storage.getCheckins(dateStr);
-  var done = checkable.filter(function (t) {
-    return checkins[t.id] && checkins[t.id].done;
+  if (!instances.length) return null;
+  var completions = Storage.getCompletions(dateStr);
+  var done = instances.filter(function (inst) {
+    return !!completions[inst.taskId + ':' + inst.scheduleIndex];
   }).length;
-  return getSmiley(checkable.length, done);
+  return getSmiley(instances.length, done);
 }
 
-function renderCalendar() {
-  var year = calendarState.year;
-  var month = calendarState.month;
+/* ---- Rendu d'une grille calendrier (partagé enfant + parent) ---- */
+
+function renderCalendarGrid(gridEl, titleEl, nextBtn, state, onDayClick) {
+  var year  = state.year;
+  var month = state.month;
   var today = getTodayDateString();
-  var now = new Date();
+  var now   = new Date();
 
-  document.getElementById('cal-month-title').textContent =
-    CAL_MONTH_NAMES[month] + ' ' + year;
+  if (titleEl) titleEl.textContent = CAL_MONTH_NAMES[month] + ' ' + year;
+  if (nextBtn)  nextBtn.disabled   = (year === now.getFullYear() && month === now.getMonth());
 
-  // Bloquer la navigation vers l'avenir
-  var atCurrentMonth = year === now.getFullYear() && month === now.getMonth();
-  document.getElementById('cal-next-btn').disabled = atCurrentMonth;
+  gridEl.innerHTML = '';
 
-  var grid = document.getElementById('calendar-grid');
-  grid.innerHTML = '';
-
-  // En-têtes des jours
   ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (h) {
     var cell = document.createElement('div');
-    cell.className = 'cal-header-cell';
+    cell.className  = 'cal-header-cell';
     cell.textContent = h;
-    grid.appendChild(cell);
+    gridEl.appendChild(cell);
   });
 
-  // Cases vides avant le 1er du mois (lun = 0)
   var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
   for (var i = 0; i < firstDow; i++) {
     var pad = document.createElement('div');
     pad.className = 'cal-cell cal-cell-empty';
-    grid.appendChild(pad);
+    gridEl.appendChild(pad);
   }
 
-  // Jours du mois
   var daysInMonth = new Date(year, month + 1, 0).getDate();
-  var periods = Storage.getPeriods();
-
   for (var d = 1; d <= daysInMonth; d++) {
     var dateStr = year + '-' +
       String(month + 1).padStart(2, '0') + '-' +
       String(d).padStart(2, '0');
 
     var isFuture = dateStr > today;
-    var isToday = dateStr === today;
+    var isToday  = dateStr === today;
 
     var cell = document.createElement('div');
     cell.className = 'cal-cell' +
-      (isToday ? ' cal-cell-today' : '') +
+      (isToday  ? ' cal-cell-today'  : '') +
       (isFuture ? ' cal-cell-future' : '');
 
     var numEl = document.createElement('span');
-    numEl.className = 'cal-day-num';
+    numEl.className   = 'cal-day-num';
     numEl.textContent = d;
     cell.appendChild(numEl);
 
     if (!isFuture) {
-      var smiley = getDaySmiley(periods, dateStr);
+      var smiley = getDaySmiley(dateStr);
       if (smiley) {
-        var imgEl = document.createElement('img');
+        var imgEl   = document.createElement('img');
         imgEl.className = 'cal-smiley';
-        imgEl.src = SITE_BASE + '/assets/img/calendar/' + smiley.image + '.png';
-        imgEl.alt = smiley.label;
+        imgEl.src   = SITE_BASE + '/assets/img/calendar/' + smiley.image + '.png';
+        imgEl.alt   = smiley.label;
         cell.appendChild(imgEl);
+      }
+      if (typeof onDayClick === 'function') {
+        (function (ds) {
+          cell.addEventListener('click', function () { onDayClick(ds); });
+        })(dateStr);
       }
     }
 
-    grid.appendChild(cell);
+    gridEl.appendChild(cell);
   }
 }
 
+/* ---- Calendrier vue enfant (index.njk) ---- */
+
+var childCalState = { year: 0, month: 0 };
+
+function openCalendar() {
+  var now = new Date();
+  childCalState.year  = now.getFullYear();
+  childCalState.month = now.getMonth();
+  renderChildCalendar();
+  var overlay = document.getElementById('calendar-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function closeCalendar() {
+  var overlay = document.getElementById('calendar-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function renderChildCalendar() {
+  var grid    = document.getElementById('calendar-grid');
+  var title   = document.getElementById('cal-month-title');
+  var nextBtn = document.getElementById('cal-next-btn');
+  if (!grid) return;
+  renderCalendarGrid(grid, title, nextBtn, childCalState, null);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-  document.getElementById('btn-calendar').addEventListener('click', openCalendar);
-  document.getElementById('cal-back-btn').addEventListener('click', closeCalendar);
-  document.getElementById('cal-prev-btn').addEventListener('click', calendarPrevMonth);
-  document.getElementById('cal-next-btn').addEventListener('click', calendarNextMonth);
+  var btnCal = document.getElementById('btn-calendar');
+  if (btnCal) btnCal.addEventListener('click', openCalendar);
+
+  var backBtn = document.getElementById('cal-back-btn');
+  if (backBtn) backBtn.addEventListener('click', closeCalendar);
+
+  var prevBtn = document.getElementById('cal-prev-btn');
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function () {
+      childCalState.month--;
+      if (childCalState.month < 0) { childCalState.month = 11; childCalState.year--; }
+      renderChildCalendar();
+    });
+  }
+
+  var nextBtn2 = document.getElementById('cal-next-btn');
+  if (nextBtn2) {
+    nextBtn2.addEventListener('click', function () {
+      var n = new Date();
+      if (childCalState.year === n.getFullYear() && childCalState.month === n.getMonth()) return;
+      childCalState.month++;
+      if (childCalState.month > 11) { childCalState.month = 0; childCalState.year++; }
+      renderChildCalendar();
+    });
+  }
 });

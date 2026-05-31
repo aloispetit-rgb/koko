@@ -172,21 +172,23 @@
 .tab-pane { display: none; flex: 1; flex-direction: column; }
 .tab-pane.tab-pane-active { display: flex; }
 
-/* ---- Périodes list ---- */
+/* ---- Tâches actives ---- */
 .pane-toolbar {
   padding: 16px;
   display: flex;
   justify-content: flex-end;
 }
 
-.periods-list {
-  padding: 0 16px 32px;
+.task-list {
+  list-style: none;
+  padding: 0 16px 16px;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.period-item {
+.task-item {
   background: rgba(255,255,255,0.12);
   border-radius: 14px;
   padding: 14px 16px;
@@ -195,7 +197,7 @@
   gap: 12px;
 }
 
-.period-item-emoji {
+.task-item-icon {
   font-size: 24px;
   line-height: 1;
   width: 32px;
@@ -206,23 +208,68 @@
   align-items: center;
   justify-content: center;
 }
-.period-item-info { flex: 1; min-width: 0; }
 
-.period-item-name {
+.task-item-icon img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.task-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.task-item-label {
   font-family: var(--font-body);
   font-size: 16px;
   font-weight: 700;
   color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.period-item-meta {
+.task-item-meta {
   font-family: var(--font-body);
   font-size: 13px;
   color: rgba(255,255,255,0.55);
-  margin-top: 2px;
 }
 
-.period-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.task-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.task-item-archived { opacity: 0.6; }
+
+.task-item-empty {
+  list-style: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: rgba(255,255,255,0.4);
+  padding: 20px 16px;
+  text-align: center;
+}
+
+/* ---- Section archivées ---- */
+.archived-section { margin: 4px 0 32px; }
+
+.archived-summary {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.archived-summary::-webkit-details-marker { display: none; }
+.archived-summary::before { content: '▶'; font-size: 9px; transition: transform 0.2s ease; }
+.archived-section[open] .archived-summary::before { transform: rotate(90deg); }
 
 .btn-icon {
   background: rgba(255,255,255,0.12);
@@ -399,7 +446,7 @@
 
 .form-input:focus { border-color: rgba(255,255,255,0.6); }
 .form-input::placeholder { color: rgba(255,255,255,0.35); }
-.form-input-emoji { text-align: center; font-size: 24px; width: 72px; }
+.form-input-emoji { text-align: center; font-size: 24px; }
 .form-input-time { text-align: center; }
 
 .form-select {
@@ -865,4 +912,306 @@
   text-align: center;
   padding: 32px 8px;
   margin: 0;
+}
+
+/* ---- Lignes horaires (schedule rows) ---- */
+.schedules-list,
+.exceptions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.schedule-row .task-type-toggle { flex-shrink: 0; }
+.schedule-row .sched-period-select,
+.schedule-row .sched-time-input  { flex: 1; min-width: 0; }
+
+/* ---- Récurrence ---- */
+.recurrence-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.recurrence-label {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: rgba(255,255,255,0.8);
+  white-space: nowrap;
+}
+
+.form-input-sm {
+  width: 64px;
+  min-height: 44px;
+  text-align: center;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: white;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.form-input-sm:focus { border-color: rgba(255,255,255,0.6); }
+
+.form-select-sm {
+  min-height: 44px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: white;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.form-select-sm option { background: #2A2A70; color: white; }
+
+.form-input-inline {
+  min-height: 40px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: white;
+  outline: none;
+  -webkit-appearance: none;
+  color-scheme: dark;
+}
+
+/* ---- Jours de la semaine (checkboxes) ---- */
+.days-row { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 0; }
+
+.day-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.day-label input[type="checkbox"] { display: none; }
+
+.day-label:has(input:checked) {
+  background: white;
+  color: #1A1A54;
+  border-color: white;
+}
+
+/* ---- Checkbox ---- */
+.form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  margin-top: 12px;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.form-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: white;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* ---- Radios fin de récurrence ---- */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-radio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  min-height: 44px;
+  flex-wrap: wrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.form-radio input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: white;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* ---- Boutons d'action formulaire ---- */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.form-actions .btn-secondary { flex: 1; }
+.form-actions .btn-primary   { flex: 2; }
+
+/* ---- Bouton danger ---- */
+.btn-danger {
+  width: 100%;
+  background: rgba(255,80,80,0.12);
+  border: 1.5px solid rgba(255,80,80,0.4);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  color: #FF8A8A;
+  cursor: pointer;
+  min-height: 52px;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-danger:active { background: rgba(255,80,80,0.28); }
+
+/* ---- Bouton suppression image ---- */
+.btn-remove-image {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: #FF8A8A;
+  cursor: pointer;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-remove-image:active { opacity: 0.7; }
+
+/* ---- Galerie (onglet Tâches) ---- */
+.gallery-section { margin: 4px 0 32px; }
+
+.gallery-section-body {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gallery-section-toolbar { display: flex; justify-content: flex-end; }
+
+.gallery-mgmt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gallery-mgmt-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  background: rgba(255,255,255,0.08);
+}
+
+.gallery-mgmt-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-item-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+
+.gallery-item-delete:active { background: rgba(255,60,60,0.7); }
+
+/* ---- Sélecteur galerie (overlay tâche) ---- */
+.gallery-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gallery-picker-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+  border: 2.5px solid transparent;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.gallery-picker-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-picker-item:active { opacity: 0.75; }
+
+.gallery-item-selected {
+  border-color: white;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4);
 }

@@ -48,10 +48,7 @@
 
 /* ---- Timeline ---- */
 .timeline {
-  padding-top: calc(var(--header-height) + 24px);
-  padding-left: 30px;
-  padding-right: 30px;
-  padding-bottom: 30px;
+  padding: 24px 30px 30px;
   min-height: 100vh;
 }
 
@@ -64,49 +61,6 @@
   font-weight: 700;
 }
 
-/* ---- Periods ---- */
-.period {
-  margin-bottom: 32px;
-}
-
-.period-separator {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.period-separator::before {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.period-name {
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
-  white-space: nowrap;
-}
-
-.period-time-start,
-.period-time-end {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.period-time-start {
-  margin-bottom: 10px;
-}
-
-.period-time-end {
-  margin-top: 10px;
-}
-
 /* ---- Task cards ---- */
 .task-list {
   display: flex;
@@ -114,19 +68,34 @@
   gap: 10px;
 }
 
+/* ---- Séparateurs de créneaux ---- */
+.schedule-separator {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 32px;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.schedule-separator-first { margin-top: 24px; }
+
+/* ---- Task cards ---- */
 .task-card {
-  background: var(--color-card-bg);
-  border-radius: var(--color-card-radius);
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 15px;
-  min-height: 50px;
+  min-height: 64px;
+  margin-bottom: 12px;
   transition: opacity 0.3s ease;
 }
 
 .task-card.task-done {
-  opacity: 1;
+  opacity: 0.5;
 }
 
 .task-emoji {
@@ -140,47 +109,52 @@
 .task-label {
   font-family: var(--font-body);
   font-size: 18px;
-  color: var(--color-card-text);
+  color: var(--color-text);
   font-weight: 600;
   flex: 1;
   line-height: 1.2;
 }
 
 .task-card.task-done .task-label {
-
+  text-decoration: line-through;
 }
 
-/* ---- Tâches passives (image) ---- */
-.task-passive {
-  position: relative;
-  margin-bottom: 10px;
+/* ---- Tâches avec image ---- */
+.task-card.task-with-image {
+  background: none;
+  padding: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
-.task-passive-label {
-  display: none;
-}
-
-.task-passive-img {
+.task-image {
   display: block;
   width: 100%;
-  min-height: 140px;
-  height: auto;
-  border-radius: 16px;
+  aspect-ratio: 3 / 2;
   object-fit: cover;
-  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+}
+
+.task-image-label {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: center;
+  padding: 0 4px 4px;
 }
 
 /* ---- Check button ---- */
 .task-check {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   background: none;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0 20px 20px 0;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s ease;
 }
@@ -192,7 +166,7 @@
 .task-check-inner {
   width: 28px;
   height: 28px;
-  border: 2.5px solid #F8BDAB;
+  border: 2.5px solid rgba(255, 255, 255, 0.5);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -337,13 +311,8 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.cal-cell-empty {
-  background: none;
-}
-
-.cal-cell-future {
-  background: rgba(255, 255, 255, 0.04);
-}
+.cal-cell-empty  { background: none; }
+.cal-cell-future { background: rgba(255, 255, 255, 0.04); }
 
 .cal-cell-today {
   background: rgba(255, 255, 255, 0.22);
@@ -358,14 +327,8 @@
   line-height: 1;
 }
 
-.cal-cell-today .cal-day-num {
-  color: white;
-  font-weight: 800;
-}
-
-.cal-cell-future .cal-day-num {
-  color: rgba(255, 255, 255, 0.35);
-}
+.cal-cell-today  .cal-day-num { color: white; font-weight: 800; }
+.cal-cell-future .cal-day-num { color: rgba(255, 255, 255, 0.35); }
 
 .cal-smiley {
   width: 30px;
@@ -414,7 +377,7 @@
 }
 
 @keyframes confetti-fall {
-  0%   { transform: translateY(0)    rotate(0deg)   scaleX(1); opacity: 1; }
+  0%   { transform: translateY(0)    rotate(0deg)   scaleX(1);  opacity: 1; }
   70%  { opacity: 1; }
   100% { transform: translateY(105vh) rotate(700deg) scaleX(-1); opacity: 0; }
 }

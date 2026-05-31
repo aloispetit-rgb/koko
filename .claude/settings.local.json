@@ -12,7 +12,10 @@
       "Bash(npx --yes @11ty/eleventy --serve --port 8080)",
       "Bash(curl -s http://localhost:8080/)",
       "Bash(pkill -f \"eleventy\")",
-      "Bash(node gen-icons.js)"
+      "Bash(node gen-icons.js)",
+      "Bash(rm /Users/aloispetit/Documents/Perso/koko/src/assets/js/periods.js)",
+      "Bash(rm -rf /Users/aloispetit/Documents/Perso/koko/src/assets/img/periods)",
+      "Bash(rm -rf /Users/aloispetit/Documents/Perso/koko/src/assets/icons)"
     ]
   }
 }

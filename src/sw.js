@@ -1,4 +1,4 @@
-var CACHE_NAME = 'koko-v4';
+var CACHE_NAME = 'koko-v6';
 
 var URLS_TO_CACHE = [
   '/koko/',
@@ -9,14 +9,11 @@ var URLS_TO_CACHE = [
   '/koko/assets/js/timeUtils.js',
   '/koko/assets/js/storage.js',
   '/koko/assets/js/recurrence.js',
-  '/koko/assets/js/periods.js',
+  '/koko/assets/js/scheduleUtils.js',
   '/koko/assets/js/smiley.js',
   '/koko/assets/js/calendar.js',
   '/koko/assets/js/app.js',
   '/koko/assets/js/parent.js',
-  '/koko/assets/img/periods/ecole.png',
-  '/koko/assets/img/periods/dormir.png',
-  '/koko/assets/img/periods/judo.png',
   '/koko/assets/img/calendar/smiley-0.png',
   '/koko/assets/img/calendar/smiley-1.png',
   '/koko/assets/img/calendar/smiley-2.png',

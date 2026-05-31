@@ -3,41 +3,16 @@ layout: layout.njk
 title: Koko — Parents
 extraCss: parent.css
 extraJs:
-  - storage.js
   - timeUtils.js
-  - recurrence.js
-  - periods.js
+  - storage.js
   - smiley.js
+  - scheduleUtils.js
+  - recurrence.js
+  - calendar.js
   - parent.js
 ---
 
-<div class="pin-gate" id="pin-gate">
-  <div class="pin-header">
-    <div class="pin-icon">🔐</div>
-    <h1 class="pin-title" id="pin-title">Code parent</h1>
-  </div>
-  <div class="pin-dots" id="pin-dots">
-    <span class="pin-dot"></span>
-    <span class="pin-dot"></span>
-    <span class="pin-dot"></span>
-    <span class="pin-dot"></span>
-  </div>
-  <p class="pin-error" id="pin-error" aria-live="polite"></p>
-  <div class="pin-keypad">
-    <button class="pin-key" data-digit="1">1</button>
-    <button class="pin-key" data-digit="2">2</button>
-    <button class="pin-key" data-digit="3">3</button>
-    <button class="pin-key" data-digit="4">4</button>
-    <button class="pin-key" data-digit="5">5</button>
-    <button class="pin-key" data-digit="6">6</button>
-    <button class="pin-key" data-digit="7">7</button>
-    <button class="pin-key" data-digit="8">8</button>
-    <button class="pin-key" data-digit="9">9</button>
-    <div class="pin-key-spacer"></div>
-    <button class="pin-key" data-digit="0">0</button>
-    <button class="pin-key pin-key-back" id="pin-back">⌫</button>
-  </div>
-</div>
+{% include "pin-gate.njk" %}
 
 <div class="parent-content" id="parent-content" style="display:none">
   <header class="parent-header">
@@ -47,32 +22,42 @@ extraJs:
   </header>
 
   <nav class="tab-bar">
-    <button class="tab-btn tab-active" data-tab="periods">📋 Périodes</button>
+    <button class="tab-btn tab-active" data-tab="tasks">📋 Tâches</button>
     <button class="tab-btn" data-tab="calendar">📅 Calendrier</button>
     <button class="tab-btn" data-tab="settings">⚙️ Réglages</button>
   </nav>
 
-  <!-- Onglet Périodes -->
-  <div class="tab-pane tab-pane-active" id="tab-periods">
+  <!-- Onglet Tâches -->
+  <div class="tab-pane tab-pane-active" id="tab-tasks">
     <div class="pane-toolbar">
-      <button class="btn-primary" id="btn-add-period">+ Nouvelle période</button>
+      <button class="btn-primary" id="btn-add-task">＋ Nouvelle tâche</button>
     </div>
-    <div class="periods-list" id="periods-list"></div>
+    <ul class="task-list" id="task-list"></ul>
+
+    <details class="archived-section">
+      <summary class="archived-summary">Archivées</summary>
+      <ul class="task-list" id="archived-list"></ul>
+    </details>
+
+    <details class="gallery-section">
+      <summary class="archived-summary">Galerie d'images</summary>
+      <div class="gallery-section-body">
+        <div class="gallery-section-toolbar">
+          <button type="button" class="btn-secondary" id="btn-gallery-import">📷 Importer une image</button>
+          <input type="file" id="gallery-import-file" accept="image/*" style="display:none">
+        </div>
+        <div class="gallery-mgmt-grid" id="gallery-grid"></div>
+        <p class="gallery-empty" id="gallery-empty-msg" style="display:none">Aucune image dans la galerie.</p>
+      </div>
+    </details>
   </div>
 
   <!-- Onglet Calendrier -->
   <div class="tab-pane" id="tab-calendar">
-    <div class="pcal-topbar">
-      <div class="cal-nav">
-        <button class="cal-nav-btn" id="pcal-prev-btn">‹</button>
-        <span class="cal-month-title" id="pcal-month-title"></span>
-        <button class="cal-nav-btn" id="pcal-next-btn">›</button>
-      </div>
-    </div>
-    <div class="calendar-grid" id="pcalendar-grid"></div>
+    <div id="parent-calendar"></div>
   </div>
 
-  <!-- Onglet Réglages -->
+  <!-- Onglet Paramètres -->
   <div class="tab-pane" id="tab-settings">
     <div class="settings-section">
       <h2 class="settings-title">Changer le code</h2>
@@ -120,165 +105,148 @@ extraJs:
       <p class="settings-error" id="import-error" aria-live="polite"></p>
       <div class="form-group import-paste-group">
         <label class="form-label" for="import-paste-area">Ou coller le JSON ici</label>
-        <textarea class="form-input import-paste-area" id="import-paste-area" rows="4" placeholder='{"koko-periods": [...], ...}' spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+        <textarea class="form-input import-paste-area" id="import-paste-area" rows="4" placeholder='{"koko:tasks": [...]}' spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
         <button class="btn-data" id="btn-import-paste">⬆️ Importer depuis le texte collé</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Overlay : formulaire période -->
-<div class="p-overlay" id="period-overlay" style="display:none">
+<!-- Overlay : formulaire tâche -->
+<div class="p-overlay" id="task-overlay" style="display:none">
   <div class="p-overlay-topbar">
-    <button class="p-back-btn" id="period-overlay-back">← Retour</button>
-    <span class="p-overlay-title" id="period-overlay-title">Nouvelle période</span>
-    <button class="btn-save" id="period-save-btn">Enregistrer</button>
+    <button class="p-back-btn" id="task-overlay-back">← Retour</button>
+    <span class="p-overlay-title" id="task-overlay-title">Nouvelle tâche</span>
+    <button class="btn-save" id="task-save-btn">Enregistrer</button>
   </div>
   <div class="p-overlay-body">
-    <input type="hidden" id="pf-id">
+    <input type="hidden" id="tf-id">
 
+    <!-- Label -->
     <div class="form-group">
-      <label class="form-label">Nom</label>
-      <input class="form-input" type="text" id="pf-name" placeholder="Matin">
+      <label class="form-label" for="tf-label">Nom de la tâche</label>
+      <input class="form-input" type="text" id="tf-label" placeholder="Se brosser les dents" autocomplete="off">
     </div>
 
+    <!-- Emoji / Image -->
     <div class="form-group">
-      <label class="form-label">Emoji</label>
-      <input class="form-input form-input-emoji" type="text" id="pf-emoji" maxlength="2" placeholder="🌅">
-    </div>
-
-    <div class="form-row">
-      <div class="form-group form-group-grow">
-        <label class="form-label">Début</label>
-        <div class="time-row">
-          <input class="form-input form-input-time" type="number" id="pf-start-hour" min="0" max="23" placeholder="6">
-          <span class="time-sep">h</span>
-          <input class="form-input form-input-time" type="number" id="pf-start-min" min="0" max="59" placeholder="00">
+      <label class="form-label">Emoji / Image</label>
+      <div class="task-type-toggle">
+        <button type="button" class="task-type-btn task-type-active" id="tf-type-emoji-btn">Emoji</button>
+        <button type="button" class="task-type-btn" id="tf-type-image-btn">Image</button>
+      </div>
+      <div id="tf-emoji-group">
+        <input class="form-input form-input-emoji" type="text" id="tf-emoji" maxlength="2" placeholder="🪥">
+      </div>
+      <div id="tf-image-group" style="display:none">
+        <input type="file" id="tf-image-file" accept="image/*" style="display:none">
+        <div class="image-btn-row">
+          <button type="button" class="btn-secondary" id="tf-image-btn">📷 Importer</button>
+          <button type="button" class="btn-secondary" id="tf-gallery-btn">🖼️ Galerie</button>
+        </div>
+        <div id="tf-image-preview" class="task-image-preview-wrap" style="display:none">
+          <img id="tf-image-preview-img" class="task-image-preview" alt="Aperçu">
+          <button type="button" class="btn-remove-image" id="tf-image-remove">✕ Retirer l'image</button>
+        </div>
+        <div id="tf-gallery-picker" style="display:none">
+          <div class="gallery-picker-grid" id="tf-gallery-picker-grid"></div>
+          <p class="gallery-empty" id="tf-gallery-picker-empty" style="display:none">Aucune image dans la galerie.</p>
         </div>
       </div>
-      <div class="form-group form-group-grow">
-        <label class="form-label">Fin</label>
-        <div class="time-row">
-          <input class="form-input form-input-time" type="number" id="pf-end-hour" min="0" max="23" placeholder="8">
-          <span class="time-sep">h</span>
-          <input class="form-input form-input-time" type="number" id="pf-end-min" min="0" max="59" placeholder="20">
-        </div>
-      </div>
     </div>
 
+    <!-- Horaires -->
+    <div class="form-group">
+      <label class="form-label">Horaires</label>
+      <ul class="schedules-list" id="schedules-list"></ul>
+      <button type="button" class="btn-secondary" id="btn-add-schedule">＋ Ajouter un horaire</button>
+    </div>
+
+    <!-- Récurrence -->
     <div class="form-group">
       <label class="form-label">Récurrence</label>
-      <select class="form-select" id="pf-recurrence-type">
-        <option value="always">Tous les jours</option>
-        <option value="weekdays">Certains jours de la semaine</option>
-        <option value="period">Période bornée (dates + jours)</option>
-        <option value="once">Une seule date</option>
-        <option value="dates">Dates précises (liste)</option>
-        <option value="until_done">Jusqu'à complétion</option>
-      </select>
+      <div class="recurrence-row">
+        <span class="recurrence-label">Répéter tous les</span>
+        <input class="form-input form-input-sm" type="number" id="tf-every" min="1" value="1">
+        <select class="form-select form-select-sm" id="tf-unit">
+          <option value="days">jours</option>
+          <option value="weeks">semaines</option>
+          <option value="months">mois</option>
+          <option value="years">années</option>
+        </select>
+      </div>
+
+      <div id="tf-days-group" style="display:none">
+        <div class="days-row">
+          <label class="day-label"><input type="checkbox" name="tf-day" value="lundi">L</label>
+          <label class="day-label"><input type="checkbox" name="tf-day" value="mardi">M</label>
+          <label class="day-label"><input type="checkbox" name="tf-day" value="mercredi">M</label>
+          <label class="day-label"><input type="checkbox" name="tf-day" value="jeudi">J</label>
+          <label class="day-label"><input type="checkbox" name="tf-day" value="vendredi">V</label>
+          <label class="day-label"><input type="checkbox" name="tf-day" value="samedi">S</label>
+          <label class="day-label"><input type="checkbox" name="tf-day" value="dimanche">D</label>
+        </div>
+      </div>
+
+      <div id="tf-month-day-group" style="display:none">
+        <div class="recurrence-row">
+          <span class="recurrence-label">Le</span>
+          <input class="form-input form-input-sm" type="number" id="tf-day-of-month" min="1" max="31" placeholder="1">
+          <span class="recurrence-label">du mois</span>
+        </div>
+      </div>
+
+      <label class="form-checkbox">
+        <input type="checkbox" id="tf-until-completion">
+        Jusqu'à complétion
+      </label>
     </div>
 
-    <div class="form-group" id="pf-days-group" style="display:none">
-      <label class="form-label">Jours</label>
-      <div class="days-row" id="pf-days-row">
-        <button type="button" class="day-btn" data-day="lundi">L</button>
-        <button type="button" class="day-btn" data-day="mardi">M</button>
-        <button type="button" class="day-btn" data-day="mercredi">M</button>
-        <button type="button" class="day-btn" data-day="jeudi">J</button>
-        <button type="button" class="day-btn" data-day="vendredi">V</button>
-        <button type="button" class="day-btn" data-day="samedi">S</button>
-        <button type="button" class="day-btn" data-day="dimanche">D</button>
+    <!-- Fin de récurrence -->
+    <div class="form-group" id="tf-end-group">
+      <label class="form-label">Fin de récurrence</label>
+      <div class="radio-group">
+        <label class="form-radio">
+          <input type="radio" name="tf-end" value="never" checked>
+          Jamais
+        </label>
+        <label class="form-radio">
+          <input type="radio" name="tf-end" value="date">
+          Le
+          <input class="form-input form-input-inline" type="date" id="tf-end-date">
+        </label>
+        <label class="form-radio">
+          <input type="radio" name="tf-end" value="occurrences">
+          Après
+          <input class="form-input form-input-sm" type="number" id="tf-end-occurrences" min="1" placeholder="10">
+          occurrences
+        </label>
       </div>
     </div>
 
-    <div class="form-row" id="pf-period-range-group" style="display:none">
-      <div class="form-group form-group-grow">
-        <label class="form-label">Du</label>
-        <input class="form-input" type="date" id="pf-from">
-      </div>
-      <div class="form-group form-group-grow">
-        <label class="form-label">Au</label>
-        <input class="form-input" type="date" id="pf-to">
-      </div>
-    </div>
-
-    <div class="form-group" id="pf-once-group" style="display:none">
-      <label class="form-label">Date</label>
-      <input class="form-input" type="date" id="pf-once-date">
-    </div>
-
-    <div class="form-group" id="pf-dates-group" style="display:none">
-      <label class="form-label">Dates</label>
-      <div class="dates-list" id="pf-dates-list"></div>
-      <div class="date-add-row">
-        <input class="form-input" type="date" id="pf-add-date-input">
-        <button type="button" class="btn-secondary" id="pf-add-date-btn">Ajouter</button>
-      </div>
-    </div>
-
-    <div class="form-group" id="pf-since-group" style="display:none">
-      <label class="form-label">Depuis le</label>
-      <input class="form-input" type="date" id="pf-since">
-    </div>
-
+    <!-- Exceptions -->
     <div class="form-group">
       <label class="form-label">Exceptions</label>
-      <div class="dates-list" id="pf-exceptions-list"></div>
+      <ul class="exceptions-list" id="exceptions-list"></ul>
       <div class="date-add-row">
-        <input class="form-input" type="date" id="pf-add-exception-input">
-        <button type="button" class="btn-secondary" id="pf-add-exception-btn">Ajouter</button>
+        <input class="form-input" type="date" id="tf-exception-date">
+        <button type="button" class="btn-secondary" id="btn-add-exception">Ajouter</button>
       </div>
     </div>
 
-    <div class="form-group">
-      <button type="button" class="btn-tasks" id="btn-manage-tasks">📝 Gérer les tâches</button>
+    <!-- Actions -->
+    <div class="form-actions">
+      <button type="button" class="btn-secondary" id="task-cancel-btn">Annuler</button>
+      <button type="button" class="btn-primary" id="task-save-btn-bottom">Enregistrer</button>
     </div>
-  </div>
-</div>
 
-<!-- Overlay : gestion des tâches -->
-<div class="p-overlay" id="tasks-overlay" style="display:none">
-  <div class="p-overlay-topbar">
-    <button class="p-back-btn" id="tasks-overlay-back">← Retour</button>
-    <span class="p-overlay-title" id="tasks-overlay-title">Tâches</span>
-  </div>
-  <div class="p-overlay-body">
-    <div class="tasks-edit-list" id="tasks-edit-list"></div>
-
-    <div class="task-add-form">
-      <h3 class="task-add-title">Nouvelle tâche</h3>
-      <div class="form-group">
-        <label class="form-label">Label</label>
-        <input class="form-input" type="text" id="new-task-label" placeholder="Se brosser les dents">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Type</label>
-        <div class="task-type-toggle">
-          <button type="button" class="task-type-btn task-type-active" id="task-type-emoji-btn">Emoji</button>
-          <button type="button" class="task-type-btn" id="task-type-image-btn">Image</button>
-        </div>
-      </div>
-      <div class="form-group" id="new-task-emoji-group">
-        <label class="form-label">Emoji</label>
-        <input class="form-input form-input-emoji" type="text" id="new-task-emoji" maxlength="2" placeholder="🪥">
-      </div>
-      <div class="form-group" id="new-task-image-group" style="display:none">
-        <label class="form-label">Image</label>
-        <input type="file" id="new-task-image-file" accept="image/*" style="display:none">
-        <div class="image-btn-row">
-          <button type="button" class="btn-secondary" id="new-task-image-btn">📷 Importer</button>
-          <button type="button" class="btn-secondary" id="new-task-gallery-btn">🖼️ Galerie</button>
-        </div>
-        <div id="new-task-image-preview" class="task-image-preview-wrap" style="display:none">
-          <img id="new-task-image-preview-img" class="task-image-preview" alt="Aperçu">
-        </div>
-      </div>
-      <button type="button" class="btn-primary" id="btn-add-task">+ Ajouter la tâche</button>
+    <div id="tf-delete-group" style="display:none">
+      <button type="button" class="btn-danger" id="task-delete-btn">Supprimer la tâche</button>
     </div>
   </div>
 </div>
 
-<!-- Overlay : détail d'un jour (calendrier parent) -->
+<!-- Overlay : validation rétroactive d'un jour -->
 <div class="p-overlay" id="day-overlay" style="display:none">
   <div class="p-overlay-topbar">
     <button class="p-back-btn" id="day-overlay-back">← Retour</button>
@@ -286,18 +254,6 @@ extraJs:
   </div>
   <div class="p-overlay-body">
     <div class="day-tasks-list" id="day-tasks-list"></div>
-    <p class="day-empty" id="day-empty" style="display:none">Aucune tâche cochable ce jour.</p>
-  </div>
-</div>
-
-<!-- Overlay : galerie d'images réutilisables -->
-<div class="p-overlay" id="gallery-overlay" style="display:none">
-  <div class="p-overlay-topbar">
-    <button class="p-back-btn" id="gallery-overlay-back">← Retour</button>
-    <span class="p-overlay-title">Galerie</span>
-  </div>
-  <div class="p-overlay-body">
-    <p class="gallery-empty" id="gallery-empty" style="display:none">Aucune image enregistrée. Importez d'abord une image dans une tâche.</p>
-    <div class="gallery-grid" id="gallery-grid"></div>
+    <p class="day-empty" id="day-empty" style="display:none">Aucune tâche ce jour.</p>
   </div>
 </div>
